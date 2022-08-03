@@ -1,0 +1,40 @@
+title: Guy Lewin's Blog
+url: https://lewin.co.il
+email: contact@lewin.co.il
+description: Documenting things I found useful.
+
+theme: jekyll-dash
+
+paginate: 5
+paginate_path: "/blog/page:num/"
+
+tag_permalink_style: pretty
+tag_page_layout: tag_page
+tag_page_dir: tag
+
+plugins:
+  - jekyll/tagging
+
+dash:
+  date_format: "%b %-d, %Y"
+
+  disqus:
+    shortname: lewin
+
+  avatar_source: github
+  github_username: GuyLewin
+
+  social_links:
+    - url: https://twitter.com/GuyLevin
+      icon: twitter-square
+      color: cyan
+    - url: https://github.com/GuyLewin
+      icon: github-square
+      color: purple
+    - url: https://www.linkedin.com/in/guy-lewin-48b00712/
+      icon: linkedin
+      color: green
+    - url: mailto:contact@lewin.co.il
+      icon: envelope-square
+      fa: true
+      color: indigo
