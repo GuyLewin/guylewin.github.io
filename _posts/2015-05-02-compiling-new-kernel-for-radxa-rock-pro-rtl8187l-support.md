@@ -10,7 +10,6 @@ tags:
     - 'radxa rock pro'
     - 'rock pro'
     - rtl8187l
-comments: true
 ---
 
 In the past few weeks I’ve been struggling to compile a kernel module for the Radxa Rock Pro, and ended up compiling the upstream kernel manually while configuring it to support my module.
