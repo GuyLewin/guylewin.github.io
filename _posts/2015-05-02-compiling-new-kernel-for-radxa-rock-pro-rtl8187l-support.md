@@ -3,13 +3,14 @@ title: 'Compiling Kernel for Radxa Rock Pro (+ rtl8187l support)'
 date: '2015-05-02T19:55:13+00:00'
 author: Guy Lewin
 layout: post
-permalink: /compiling-new-kernel-for-radxa-rock-pro-rtl8187l-support/
+redirect_from:
+  - /compiling-new-kernel-for-radxa-rock-pro-rtl8187l-support/
 tags:
-    - kernel
-    - linux
-    - 'radxa rock pro'
-    - 'rock pro'
-    - rtl8187l
+  - kernel
+  - linux
+  - 'radxa rock pro'
+  - 'rock pro'
+  - rtl8187l
 ---
 
 In the past few weeks I’ve been struggling to compile a kernel module for the Radxa Rock Pro, and ended up compiling the upstream kernel manually while configuring it to support my module.

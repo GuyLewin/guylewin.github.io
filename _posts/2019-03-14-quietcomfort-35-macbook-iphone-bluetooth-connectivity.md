@@ -3,16 +3,17 @@ title: 'QuietComfort 35 + MacBook + iPhone Bluetooth Connectivity'
 date: '2019-03-14T23:36:46+00:00'
 author: Guy Lewin
 layout: post
-permalink: /quietcomfort-35-macbook-iphone-bluetooth-connectivity/
+redirect_from:
+  - /quietcomfort-35-macbook-iphone-bluetooth-connectivity/
 tags:
-    - bluetooth
-    - blueutil
-    - bose
-    - controlplane
-    - iphone
-    - macbook
-    - 'power manager'
-    - quietcomfort
+  - bluetooth
+  - blueutil
+  - bose
+  - controlplane
+  - iphone
+  - macbook
+  - 'power manager'
+  - quietcomfort
 ---
 
 I received QuietComfort 35 from work, and I loved it from the first moment I used it. It’s always connected to my work Mac, my personal Mac and to my iPhone.

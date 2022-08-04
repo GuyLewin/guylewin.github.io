@@ -3,15 +3,16 @@ title: 'Iodine and Paid-Access Hotspot Situations'
 date: '2019-01-19T14:20:06+00:00'
 author: Guy Lewin
 layout: post
-permalink: /iodine-and-paid-access-hotspot-situations/
+redirect_from:
+  - /iodine-and-paid-access-hotspot-situations/
 tags:
-    - dns
-    - facebook
-    - hotspot
-    - iodine
-    - messenger
-    - reddit
-    - wifi
+  - dns
+  - facebook
+  - hotspot
+  - iodine
+  - messenger
+  - reddit
+  - wifi
 ---
 
 I travel a lot and find myself in many situations where I’m connected to a hotspot but have to pay to get access to the Internet.

@@ -3,16 +3,17 @@ title: 'Bathroom Smart Speaker Part 2 &#8211; AirPlay to Bluetooth Speaker via R
 date: '2022-03-02T03:22:11+00:00'
 author: Guy Lewin
 layout: post
-permalink: /bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/
+redirect_from:
+  - /bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/
 tags:
-    - airplay
-    - 'apple music'
-    - bluetooth
-    - 'home assistant'
-    - 'raspberry pi'
-    - shairport-sync
-    - spotify
-    - 'ue boom'
+  - airplay
+  - 'apple music'
+  - bluetooth
+  - 'home assistant'
+  - 'raspberry pi'
+  - shairport-sync
+  - spotify
+  - 'ue boom'
 ---
 
 In [part 1](https://lewin.co.il/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/) I wrote on how to create a smart speaker supporting Spotify Connect using a Raspberry Pi and a Bluetooth speaker. Since writing that post I started using Apple Music and wanted to enjoy simultaneous streaming of music to multiple speakers in my house. I wanted my bathroom speaker, which became smart by supporting Spotify Connect, to also be able to play Apple Music.

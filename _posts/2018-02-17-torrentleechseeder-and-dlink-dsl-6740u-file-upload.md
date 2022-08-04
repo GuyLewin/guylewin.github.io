@@ -3,7 +3,8 @@ title: 'TorrentLeechSeeder and DLink DSL-6740U File Upload'
 date: '2018-02-17T20:09:08+00:00'
 author: Guy Lewin
 layout: post
-permalink: /torrentleechseeder-and-dlink-dsl-6740u-file-upload/
+redirect_from:
+  - /torrentleechseeder-and-dlink-dsl-6740u-file-upload/
 ---
 
 I recently worked on 2 useful mini-projects that I wanted to share, in case it’s useful to anyone.

@@ -3,14 +3,15 @@ title: 'Lock Mac After Inactivity'
 date: '2019-03-15T11:27:24+00:00'
 author: Guy Lewin
 layout: post
-permalink: /lock-mac-after-inactivity/
+redirect_from:
+  - /lock-mac-after-inactivity/
 tags:
-    - 'configuration profile'
-    - inactivity
-    - lock
-    - mac
-    - manual-screensaver-cron
-    - screensaver
+  - 'configuration profile'
+  - inactivity
+  - lock
+  - mac
+  - manual-screensaver-cron
+  - screensaver
 ---
 
 Mac comes with a shortcut for locking the desktop session - `⌘ + Ctrl + Q`. It is also possible to [define another keyboard shortcut for that](https://maclovin.org/blog-native/2017/high-sierra-set-a-global-shortcut-to-lock-screen).

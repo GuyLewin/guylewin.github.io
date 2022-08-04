@@ -3,16 +3,17 @@ title: 'Inconsistencies in grpc-java Error Handling with Bidirectional Streams'
 date: '2020-10-27T02:37:59+00:00'
 author: Guy Lewin
 layout: post
-permalink: /inconsistencies-in-grpc-java-error-handling-with-bidirectional-streams/
+redirect_from:
+  - /inconsistencies-in-grpc-java-error-handling-with-bidirectional-streams/
 tags:
-    - bidirectional
-    - grpc
-    - grpc-java
-    - oncompleted
-    - onerror
-    - statusruntimeexception
-    - stream
-    - streamobserver
+  - bidirectional
+  - grpc
+  - grpc-java
+  - oncompleted
+  - onerror
+  - statusruntimeexception
+  - stream
+  - streamobserver
 ---
 
 While working on a [grpc-java](https://github.com/grpc/grpc-java) project with [bidirectional streaming](https://grpc.io/docs/languages/java/basics/#bidirectional-streaming-rpc) I noticed lack of documentation on how to handle errors. I wanted to know when are errors thrown, and how should an error be handled after receiving one.

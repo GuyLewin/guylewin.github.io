@@ -3,16 +3,17 @@ title: 'Debugging WebKit for iOS'
 date: '2019-03-16T15:24:44+00:00'
 author: Guy Lewin
 layout: post
-permalink: /debugging-webkit-for-ios/
+redirect_from:
+  - /debugging-webkit-for-ios/
 tags:
-    - crash
-    - debug
-    - ios
-    - lldb
-    - 'unable to attach'
-    - webcore
-    - webkit
-    - xcode
+  - crash
+  - debug
+  - ios
+  - lldb
+  - 'unable to attach'
+  - webcore
+  - webkit
+  - xcode
 ---
 
 I found a [bug in WebKit for iOS](https://bugs.webkit.org/show_bug.cgi?id=195537) and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process.

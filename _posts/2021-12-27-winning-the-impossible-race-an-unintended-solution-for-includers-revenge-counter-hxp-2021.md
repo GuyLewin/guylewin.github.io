@@ -3,16 +3,17 @@ title: 'Winning the Impossible Race &#8211; An Unintended Solution for Includerâ
 date: '2021-12-27T21:32:49+00:00'
 author: Guy Lewin and Eyal Daniel
 layout: post
-permalink: /winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/
+redirect_from:
+  - /winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/
 tags:
-    - ctf
-    - exploit
-    - hxp
-    - lfi
-    - nginx
-    - pasten
-    - php
-    - unintended
+  - ctf
+  - exploit
+  - hxp
+  - lfi
+  - nginx
+  - pasten
+  - php
+  - unintended
 ---
 
 In December 2021 Eyal Daniel and me (Guy Lewin) participated in [hxp CTF 2021](https://2021.ctf.link/) on behalf of "[pasten](https://ctftime.org/team/6965)" group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx.

@@ -3,15 +3,16 @@ title: 'UniFi Static IP Leases'
 date: '2021-07-11T19:51:56+00:00'
 author: Guy Lewin
 layout: post
-permalink: /unifi-static-ip-leases/
+redirect_from:
+  - /unifi-static-ip-leases/
 tags:
-    - dhcp
-    - ip
-    - jq
-    - ssh
-    - static
-    - ubiquiti
-    - unifi
+  - dhcp
+  - ip
+  - jq
+  - ssh
+  - static
+  - ubiquiti
+  - unifi
 ---
 
 In order to organize my UniFi-controlled network, I tried to look at all the static IP allocations I made using the UniFi portal.

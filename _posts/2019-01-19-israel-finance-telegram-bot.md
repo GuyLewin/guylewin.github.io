@@ -3,13 +3,14 @@ title: israel-finance-telegram-bot
 date: '2019-01-19T13:54:42+00:00'
 author: Guy Lewin
 layout: post
-permalink: /israel-finance-telegram-bot/
+redirect_from:
+  - /israel-finance-telegram-bot/
 tags:
-    - bank
-    - 'credit card'
-    - finance
-    - notifications
-    - telegram
+  - bank
+  - 'credit card'
+  - finance
+  - notifications
+  - telegram
 ---
 
 When it comes to monitoring your expenses, different people have different methods. Some read the monthly-sent billing summary from each credit card provider / bank, some login to these services repeatedly to check if there’s something new. I prefer getting the expenses as phone notifications while I can still remember what the expense was for, not a month after.

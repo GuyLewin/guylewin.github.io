@@ -3,15 +3,16 @@ title: 'THCon 2k22 CTF - "Local Card Maker" Writeup'
 date: '2022-04-17T20:55:10+00:00'
 author: Guy Lewin
 layout: post
-permalink: /thcon-2k22-ctf-local-card-maker-writeup/
+redirect_from:
+  - /thcon-2k22-ctf-local-card-maker-writeup/
 tags:
-    - ctf
-    - exploit
-    - lfi
-    - php
-    - rce
-    - sha-1
-    - web
+  - ctf
+  - exploit
+  - lfi
+  - php
+  - rce
+  - sha-1
+  - web
 ---
 
 I participated in [THCon 2k22 CTF](https://ctf.thcon.party/) and amongst the incredible "web" challenges - my favorite was "Local Card Maker" (made by `jrjgjk`). In this post I’ll describe the challenge and my step-by-step solution.

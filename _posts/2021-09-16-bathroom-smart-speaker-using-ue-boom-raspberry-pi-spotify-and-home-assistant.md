@@ -3,15 +3,16 @@ title: 'Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Ass
 date: '2021-09-16T17:27:45+00:00'
 author: Guy Lewin
 layout: post
-permalink: /bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/
+redirect_from:
+  - /bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/
 tags:
-    - 'home assistant'
-    - pi-btaudio
-    - 'raspberry pi'
-    - raspotify
-    - spotcast
-    - spotify
-    - 'ue boom'
+  - 'home assistant'
+  - pi-btaudio
+  - 'raspberry pi'
+  - raspotify
+  - spotcast
+  - spotify
+  - 'ue boom'
 ---
 
 ## Goal
