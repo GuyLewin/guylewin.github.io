@@ -1,7 +1,7 @@
 ---
 title: 'Winning the Impossible Race &#8211; An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)'
 date: '2021-12-27T21:32:49+00:00'
-author: Guy Lewin, Eyal Daniel
+author: Guy Lewin and Eyal Daniel
 layout: post
 permalink: /winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/
 tags:
