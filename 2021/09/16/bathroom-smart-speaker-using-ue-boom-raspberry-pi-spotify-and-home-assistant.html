@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html class="direction--ltr"lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant | Guy Lewin’s Blog</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant" />
+<meta name="author" content="Guy Lewin" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="Goal" />
+<meta property="og:description" content="Goal" />
+<link rel="canonical" href="https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html" />
+<meta property="og:url" content="https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html" />
+<meta property="og:site_name" content="Guy Lewin’s Blog" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2021-09-16T17:27:45+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Guy Lewin"},"dateModified":"2021-09-16T17:27:45+00:00","datePublished":"2021-09-16T17:27:45+00:00","description":"Goal","headline":"Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant","mainEntityOfPage":{"@type":"WebPage","@id":"https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html"},"url":"https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/assets/css/magnific-popup.css"><link type="application/atom+xml" rel="alternate" href="https://lewin.co.il/feed.xml" title="Guy Lewin's Blog" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YEJ89F03YG"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-YEJ89F03YG');
+</script>
+<script src="https://code.jquery.com/jquery-3.2.0.min.js"></script> 
+  <script src="/assets/js/jquery.magnific-popup.js"></script>
+</head>
+<body><div class="site-header">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="/">Guy Lewin&#39;s Blog<b class="command_prompt"></b><b class="blinking_cursor">_</b></a>
+    <span class="social_links">
+        
+        
+        <a class="color-cyan-hover" href="https://twitter.com/GuyLevin"><i class="fab fa-twitter-square"></i></a>
+        
+        
+        
+        <a class="color-purple-hover" href="https://github.com/GuyLewin"><i class="fab fa-github-square"></i></a>
+        
+        
+        
+        <a class="color-green-hover" href="https://www.linkedin.com/in/guy-lewin-48b00712/"><i class="fab fa-linkedin"></i></a>
+        
+        
+        
+        <a class="color-indigo-hover" href="mailto:contact@lewin.co.il"><i class="fa fa-envelope-square"></i></a>
+        
+        
+    </span>
+  </div>
+</div>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        
+  <div class="author-box">
+
+
+<img src="
+    https://github.com/GuyLewin.png
+" class="author-avatar" alt="Avatar" />
+<div class="description">Documenting things I found useful.</div>
+
+</div>
+
+
+<div class="post">
+  <h1 class="post-title">Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant</h1>
+  
+  <div class="post-tags">
+      
+      <a class="tag" href="/tag/home-assistant/">home assistant</a>
+      
+      <a class="tag" href="/tag/pi-btaudio/">pi-btaudio</a>
+      
+      <a class="tag" href="/tag/raspberry-pi/">raspberry pi</a>
+      
+      <a class="tag" href="/tag/raspotify/">raspotify</a>
+      
+      <a class="tag" href="/tag/spotcast/">spotcast</a>
+      
+      <a class="tag" href="/tag/spotify/">spotify</a>
+      
+      <a class="tag" href="/tag/ue-boom/">ue boom</a>
+      
+  </div>
+  
+  <div class="post-date">
+    Published on 16 Sep 2021
+    
+    by Guy Lewin
+    
+  </div>
+  
+  <h2 id="goal">Goal</h2>
+
+<p>We’re going to build a smart speaker system that can play tropical forest sounds (or any other Spotify playlist) on demand from Home Assistant, and support Spotify Connect connectivity to cast music from other Spotify clients (if you want to put your own music while showering).</p>
+
+<h2 id="why">Why?</h2>
+
+<p>Who doesn’t like showering with music? And if you already put a speaker in your bathroom, why not put some tropical background sounds while you’re at it?</p>
+
+<h2 id="hardware-requirements">Hardware Requirements</h2>
+
+<p>I’m using the following hardware for my setup:</p>
+
+<ul>
+  <li><a href="https://www.ultimateears.com/en-us/wireless-speakers/boom-3.html">UE </a><a href="https://www.ultimateears.com/en-us/wireless-speakers/boom-3.html">Boom</a> (I’m actually using UE Boom 2 but any UE Boom would work).</li>
+  <li><a href="https://www.raspberrypi.org/products/raspberry-pi-zero-w/">Raspberry Pi Zero W</a> (any Raspberry Pi with Bluetooth will work. Make sure it’ll also have WiFi since most bathrooms don’t have an Ethernet port).
+    <ul>
+      <li>microSD card and power adapter for the Raspberry Pi.</li>
+    </ul>
+  </li>
+  <li>Optional: <a href="https://www.aqara.com/us/motion_sensor.html">Aqara Motion Sensor</a> + <a href="https://www.phoscon.de/en/conbee2">ConBee II</a> (if you want to turn music on / off based on motion).</li>
+</ul>
+
+<h2 id="additional-requirements">Additional Requirements</h2>
+
+<ul>
+  <li><a href="https://www.home-assistant.io/">Home Assistant</a> installation in LAN.</li>
+  <li>Spotify Premium account.</li>
+</ul>
+
+<h2 id="steps">Steps</h2>
+
+<h3 id="preparing-the-raspberry-pi">Preparing the Raspberry Pi</h3>
+
+<p>Install <a href="https://www.raspberrypi.org/software/">Raspberry Pi OS</a> on your device by using software such as <a href="https://www.raspberrypi.org/documentation/computers/getting-started.html#using-raspberry-pi-imager">Raspberry Pi Imager</a>. I chose to install the “Raspberry Pi OS with desktop” flavor.</p>
+
+<h3 id="installing-raspotify">Installing Raspotify</h3>
+
+<p>Once the RPi is installed and connected to your local network, connect via SSH and run the following command to install <a href="https://github.com/dtcooper/raspotify">Raspotify</a> - the Spotify connect server for Raspberry Pi:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install Raspotify</span>
+curl <span class="nt">-sL</span> https://dtcooper.github.io/raspotify/install.sh | sh
+</code></pre></div></div>
+
+<p>After installation, edit <code class="language-plaintext highlighter-rouge">/etc/default/raspotify</code> to change some parameters:</p>
+
+<ul>
+  <li>Uncomment (remove the # at the beginning) the line that starts with <code class="language-plaintext highlighter-rouge">DEVICE_NAME</code> and name your Spotify connect server (e.g. <code class="language-plaintext highlighter-rouge">Bathroom Speaker</code>)</li>
+  <li>Uncomment (remove the # at the beginning) the line that starts with <code class="language-plaintext highlighter-rouge">OPTIONS</code> in order to specify your Spotify premium credentials. This is crucial to allow Home Assistant to play music on this speaker</li>
+</ul>
+
+<p>The file should look like this (<strong>while changing every <code class="language-plaintext highlighter-rouge">&lt;&gt;</code> parameter</strong>):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># /etc/default/raspotify -- Arguments/configuration for librespot
+
+# Device name on Spotify Connect
+DEVICE_NAME="&lt;Speaker Name&gt;"
+
+# The displayed device type in Spotify clients.
+# Can be "unknown", "computer", "tablet", "smartphone", "speaker", "tv",
+# "avr" (Audio/Video Receiver), "stb" (Set-Top Box), and "audiodongle".
+#DEVICE_TYPE="speaker"
+
+# Bitrate, one of 96 (low quality), 160 (default quality), or 320 (high quality)
+#BITRATE="160"
+
+# Additional command line arguments for librespot can be set below.
+# See `librespot -h` for more info. Make sure whatever arguments you specify
+# aren't already covered by other variables in this file. (See the daemon's
+# config at `/lib/systemd/system/raspotify.service` for more technical details.)
+#
+# To make your device visible on Spotify Connect across the Internet add your
+# username and password which can be set via "Set device password", on your
+# account settings, use `--username` and `--password`.
+#
+# To choose a different output device (ie a USB audio dongle or HDMI audio out),
+# use `--device` with something like `--device hw:0,1`. Your mileage may vary.
+#
+OPTIONS="--username '&lt;Put Spotify Premium Username Here&gt;' --password '&lt;Put Spotify Premium Password Here&gt;'"
+
+# Uncomment to use a cache for downloaded audio files. Cache is disabled by
+# default. It's best to leave this as-is if you want to use it, since
+# permissions are properly set on the directory `/var/cache/raspotify'.
+#CACHE_ARGS="--cache /var/cache/raspotify"
+
+# By default, the volume normalization is enabled, add alternative volume
+# arguments here if you'd like, but these should be fine.
+#VOLUME_ARGS="--enable-volume-normalisation --volume-ctrl linear --initial-volume=100"
+
+# Backend could be set to pipe here, but it's for very advanced use cases of
+# librespot, so you shouldn't need to change this under normal circumstances.
+#BACKEND_ARGS="--backend alsa"
+</code></pre></div></div>
+
+<h3 id="installing-pi-btaudio">Installing pi-btaudio</h3>
+
+<p>pi-btaudio is a suite of packages that allow your RPi to connect to UE Boom automatically, and make sure the connection stays active.</p>
+
+<p>Start by going over the <a href="https://github.com/bablokb/pi-btaudio#prerequisites">prerequisites</a>, make sure to write down the MAC address of your UE Boom. In order to connect to a UE Boom, you must press its Bluetooth pairing button for it to accept new connections.</p>
+
+<p>Once you’re done, follow <a href="https://github.com/bablokb/pi-btaudio#installation">their installation steps</a> to install the tools. Edit the configuration file in <code class="language-plaintext highlighter-rouge">/etc/asound.conf</code> with the following content (<strong>make sure you replace <code class="language-plaintext highlighter-rouge">&lt;UE Boom Bluetooth MAC&gt;</code> with the one found during prerequisites</strong>):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pcm.!default "bluealsa"
+ctl.!default "bluealsa"
+defaults.bluealsa.interface "hci0"
+defaults.bluealsa.device "&lt;UE Boom Bluetooth MAC&gt;"
+defaults.bluealsa.profile "a2dp"
+</code></pre></div></div>
+
+<h3 id="raspotify-watchdog-restarter">Raspotify Watchdog Restarter</h3>
+
+<p>Providing credentials as options to Raspotify ensures Home Assistant will be able to connect and play music remotely. But after someone else uses Spotify Connect to cast music into Raspotify - it’s unable to reconnect using the credentials provided in the configuration file.</p>
+
+<p>To solve this, I wrote a small API server in Python to restart Raspotify once I want to turn it off (when motion sensor turns off).</p>
+
+<p>Start by creating a <code class="language-plaintext highlighter-rouge">~/watchdog</code> directory and placing the following content in <code class="language-plaintext highlighter-rouge">~/watchdog/server.py</code> (<strong>replace <code class="language-plaintext highlighter-rouge">&lt;Secret Restart Password QueryString&gt;</code> with some long string that should be kept secret</strong>):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
+<span class="kn">from</span> <span class="n">http.server</span> <span class="kn">import</span> <span class="n">HTTPServer</span><span class="p">,</span> <span class="n">BaseHTTPRequestHandler</span>
+
+<span class="k">class</span> <span class="nc">MyHandler</span><span class="p">(</span><span class="n">BaseHTTPRequestHandler</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">do_GET</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">path</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">/?&lt;Secret Restart Password QueryString&gt;</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">send_response</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">end_headers</span><span class="p">()</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">wfile</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="nf">bytes</span><span class="p">(</span><span class="sh">"</span><span class="s">Bye bye</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">))</span>
+            <span class="k">return</span>
+        <span class="c1"># send 200 response
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">send_response</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+        <span class="c1"># send response headers
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">end_headers</span><span class="p">()</span>
+        <span class="c1"># send the body of the response
+</span>        <span class="n">os</span><span class="p">.</span><span class="nf">system</span><span class="p">(</span><span class="sh">"</span><span class="s">sudo systemctl restart raspotify.service</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">wfile</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="nf">bytes</span><span class="p">(</span><span class="sh">"</span><span class="s">Restarted</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">))</span>
+
+<span class="n">httpd</span> <span class="o">=</span> <span class="nc">HTTPServer</span><span class="p">((</span><span class="sh">''</span><span class="p">,</span> <span class="mi">9876</span><span class="p">),</span> <span class="n">MyHandler</span><span class="p">)</span>
+<span class="n">httpd</span><span class="p">.</span><span class="nf">serve_forever</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Then create the file <code class="language-plaintext highlighter-rouge">/lib/systemd/system/restart_raspotify.service</code> with the following content:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[Unit]
+Description=Restart raspotify service
+After=multi-user.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/watchdog/server.py
+StandardInput=tty-force
+
+[Install]
+WantedBy=multi-user.target
+</code></pre></div></div>
+
+<p>To enable the newly created service, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>systemctl <span class="nb">enable </span>restart_raspotify.service
+systemctl start restart_raspotify.service
+</code></pre></div></div>
+
+<h3 id="spotcast-on-home-assistant">Spotcast on Home Assistant</h3>
+
+<p>Spotcast enables Home Assistant to play music on Spotify Connect-enabled devices, like our Raspotify system. Follow the <a href="https://github.com/fondberg/spotcast#installation">installation steps</a> to install on your Home Assistant instance. After installing, you need to configure Home Assistant to authenticate using your Spotify Premium account by following the <a href="https://github.com/fondberg/spotcast#configuration">configuration steps</a>.</p>
+
+<p>After restarting Home Assistant, you’ll be able to use Spotcast to play music on your speaker through Raspotify by calling this Home Assistant service (<strong>replace <code class="language-plaintext highlighter-rouge">&lt;Speaker Name&gt;</code> with what you specified in <code class="language-plaintext highlighter-rouge">/etc/default/raspotify</code>, and <code class="language-plaintext highlighter-rouge">&lt;Spotify Playlist URI&gt;</code> with the Spotify-formatted URI such as <code class="language-plaintext highlighter-rouge">spotify:album:2PPfl28ysMbOkl2DBJ5Dr4</code> - a good rainforest nature album</strong>):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">data</span><span class="pi">:</span>
+  <span class="na">device_name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;Speaker</span><span class="nv"> </span><span class="s">Name&gt;"</span>
+  <span class="na">random_song</span><span class="pi">:</span> <span class="kc">true</span>
+  <span class="na">uri</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;Spotify</span><span class="nv"> </span><span class="s">Playlist</span><span class="nv"> </span><span class="s">URI&gt;"</span>
+  <span class="na">start_volume</span><span class="pi">:</span> <span class="m">15</span>
+  <span class="na">force_playback</span><span class="pi">:</span> <span class="kc">true</span>
+<span class="na">service</span><span class="pi">:</span> <span class="s">spotcast.start</span>
+</code></pre></div></div>
+
+<h3 id="raspotify-restart-via-home-assistant">Raspotify Restart via Home Assistant</h3>
+
+<p>Edit Home Assistant’s <code class="language-plaintext highlighter-rouge">configuration.yaml</code> file (by <a href="https://www.home-assistant.io/getting-started/configuration/">installing the File Editor</a> or by any other method) and insert the following to the configuration (<strong>replace &lt;Secret Restart Password QueryString&gt; with what you chose in <code class="language-plaintext highlighter-rouge">~/watchdog/server.py</code></strong>):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">rest_command</span><span class="pi">:</span>
+  <span class="na">restart_raspotify</span><span class="pi">:</span>
+    <span class="na">url</span><span class="pi">:</span> <span class="s2">"</span><span class="s">http://&lt;Raspberry</span><span class="nv"> </span><span class="s">Pi</span><span class="nv"> </span><span class="s">IP&gt;:9876/?&lt;Secret</span><span class="nv"> </span><span class="s">Restart</span><span class="nv"> </span><span class="s">Password</span><span class="nv"> </span><span class="s">QueryString&gt;"</span>
+</code></pre></div></div>
+
+<p>After another Home Assistant restart, you’ll be able to invoke the following service to restart Raspotify and make it re-authenticate using the configured credentials:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">service</span><span class="pi">:</span> <span class="s">rest_command.restart_raspotify</span>
+</code></pre></div></div>
+
+<h3 id="connecting-it-all-together-in-home-assistant">Connecting It All Together in Home Assistant</h3>
+
+<p>I configured an automation to trigger when the motion sensor is activated - it will play the rainforest nature album (<code class="language-plaintext highlighter-rouge">spotify:album:2PPfl28ysMbOkl2DBJ5Dr4</code>). When the motion sensor is deactivated - it runs restart_raspotify to reset Raspotify to the configured credentials and be ready for the next person to walk in.</p>
+
+<p>If anyone wants the full Home Assistant setup, write a comment and I’ll upload that as well.</p>
+
+<h3 id="adding-airplay-support">Adding AirPlay Support</h3>
+
+<p>Follow the instructions in the <a href="https://lewin.co.il/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/">follow-up post</a>.</p>
+
+<h2 id="bonus---turning-ue-boom-on-via-raspberry-pi">Bonus - Turning UE Boom On via Raspberry Pi</h2>
+
+<p>UE Boom is listening for Bluetooth commands even when turned off. You can use your phone (if paired with the speaker) to turn the speaker on remotely. You can do the same with Raspberry Pi after it’s connected. To do so, first install NodeJS (I chose version 14.15.4 while writing this, there’s probably a newer version available when you’re reading this). There’s no official NodeJS release for Raspberry Pi Zero W, but this unofficial installation works great for me:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/bash</span>
+<span class="nb">export </span><span class="nv">NODE_VER</span><span class="o">=</span>14.15.4
+<span class="k">if</span> <span class="o">!</span> node <span class="nt">--version</span> | <span class="nb">grep</span> <span class="nt">-q</span> <span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="p">;</span> <span class="k">then</span>
+  <span class="o">(</span><span class="nb">cat</span> /proc/cpuinfo | <span class="nb">grep</span> <span class="nt">-q</span> <span class="s2">"Pi Zero"</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="k">if</span> <span class="o">[</span> <span class="o">!</span> <span class="nt">-d</span> node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span> <span class="o">]</span><span class="p">;</span> <span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"Installing nodejs </span><span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="s2"> for armv6 from unofficial builds..."</span>
+    curl <span class="nt">-O</span> https://unofficial-builds.nodejs.org/download/release/v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span>/node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span>.tar.xz
+    <span class="nb">tar</span> <span class="nt">-xf</span> node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span>.tar.xz
+  <span class="k">fi
+  </span><span class="nb">echo</span> <span class="s2">"Adding node to the PATH"</span>
+  <span class="nv">PATH</span><span class="o">=</span><span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>/node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span>/bin:<span class="k">${</span><span class="nv">PATH</span><span class="k">}</span>
+<span class="k">fi</span>
+</code></pre></div></div>
+
+<p>After installing NodeJS, run the following script whenever you want to turn your UE Boom on. <strong>Make sure you replace 00:11:22:33:44:55 with your UE Boom’s Bluetooth MAC address, and AABBCCDDEEFF to your Raspberry Pi Zero W’s Bluetooth MAC address, the same client address you used for pairing.</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+
+<span class="nb">set</span> <span class="nt">-ue</span>
+
+<span class="nv">HANDLE</span><span class="o">=</span>0x0003
+<span class="nv">VALUE</span><span class="o">=</span>AABBCCDDEEFF01
+
+<span class="nv">MAC</span><span class="o">=</span>00:11:22:33:44:55
+
+gatttool <span class="nt">-b</span> <span class="nv">$MAC</span> <span class="nt">--char-write-req</span> <span class="nt">--handle</span><span class="o">=</span><span class="nv">$HANDLE</span> <span class="nt">--value</span><span class="o">=</span><span class="nv">$VALUE</span>
+</code></pre></div></div>
+
+</div>
+
+
+<div class="comments">
+<div id="disqus_thread"></div>
+<script>
+ var disqus_config = function () {
+     this.page.url = 'https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html';
+     this.page.identifier = '/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant';
+     this.page.title = 'Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant';
+ };
+
+ (function() {  // REQUIRED CONFIGURATION VARIABLE: EDIT THE SHORTNAME BELOW
+     var d = document, s = d.createElement('script');
+
+     s.src = '//lewin.disqus.com/embed.js';
+
+     s.setAttribute('data-timestamp', +new Date());
+     (d.head || d.body).appendChild(s);
+ })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+</div>
+
+
+
+
+<div class="related">
+  <h2>related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html">
+            THCon 2k22 CTF - "Local Card Maker" Writeup
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi.html">
+            Bathroom Smart Speaker Part 2 &#8211; AirPlay to Bluetooth Speaker via Raspberry Pi
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html">
+            Winning the Impossible Race &#8211; An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+
+
+  
+  <h2>all tags</h2>
+  <div class="tag-cloud"><a href="/tag/airplay/" class="set-1">airplay</a> <a href="/tag/api/" class="set-1">api</a> <a href="/tag/apple-music/" class="set-1">apple music</a> <a href="/tag/as3992/" class="set-1">as3992</a> <a href="/tag/bank/" class="set-1">bank</a> <a href="/tag/bidirectional/" class="set-1">bidirectional</a> <a href="/tag/bluetooth/" class="set-5">bluetooth</a> <a href="/tag/blueutil/" class="set-1">blueutil</a> <a href="/tag/bose/" class="set-1">bose</a> <a href="/tag/configuration-profile/" class="set-1">configuration profile</a> <a href="/tag/controlplane/" class="set-1">controlplane</a> <a href="/tag/crash/" class="set-1">crash</a> <a href="/tag/credit-card/" class="set-1">credit card</a> <a href="/tag/ctf/" class="set-5">ctf</a> <a href="/tag/debug/" class="set-1">debug</a> <a href="/tag/dhcp/" class="set-1">dhcp</a> <a href="/tag/dns/" class="set-1">dns</a> <a href="/tag/exploit/" class="set-5">exploit</a> <a href="/tag/facebook/" class="set-1">facebook</a> <a href="/tag/finance/" class="set-1">finance</a> <a href="/tag/grpc/" class="set-1">grpc</a> <a href="/tag/grpc-java/" class="set-1">grpc-java</a> <a href="/tag/home-assistant/" class="set-5">home assistant</a> <a href="/tag/hotspot/" class="set-1">hotspot</a> <a href="/tag/hxp/" class="set-1">hxp</a> <a href="/tag/inactivity/" class="set-1">inactivity</a> <a href="/tag/iodine/" class="set-1">iodine</a> <a href="/tag/ios/" class="set-1">ios</a> <a href="/tag/ip/" class="set-1">ip</a> <a href="/tag/iphone/" class="set-1">iphone</a> <a href="/tag/jq/" class="set-1">jq</a> <a href="/tag/kernel/" class="set-1">kernel</a> <a href="/tag/lfi/" class="set-5">lfi</a> <a href="/tag/linux/" class="set-1">linux</a> <a href="/tag/lldb/" class="set-1">lldb</a> <a href="/tag/lock/" class="set-1">lock</a> <a href="/tag/mac/" class="set-1">mac</a> <a href="/tag/macbook/" class="set-1">macbook</a> <a href="/tag/manual-screensaver-cron/" class="set-1">manual-screensaver-cron</a> <a href="/tag/messenger/" class="set-1">messenger</a> <a href="/tag/nginx/" class="set-1">nginx</a> <a href="/tag/notifications/" class="set-1">notifications</a> <a href="/tag/oncompleted/" class="set-1">oncompleted</a> <a href="/tag/onerror/" class="set-1">onerror</a> <a href="/tag/pasten/" class="set-1">pasten</a> <a href="/tag/php/" class="set-5">php</a> <a href="/tag/pi-btaudio/" class="set-1">pi-btaudio</a> <a href="/tag/power-manager/" class="set-1">power manager</a> <a href="/tag/python/" class="set-1">python</a> <a href="/tag/quietcomfort/" class="set-1">quietcomfort</a> <a href="/tag/radxa-rock-pro/" class="set-1">radxa rock pro</a> <a href="/tag/raspberry-pi/" class="set-5">raspberry pi</a> <a href="/tag/raspotify/" class="set-1">raspotify</a> <a href="/tag/rce/" class="set-1">rce</a> <a href="/tag/reddit/" class="set-1">reddit</a> <a href="/tag/rfid/" class="set-1">rfid</a> <a href="/tag/rock-pro/" class="set-1">rock pro</a> <a href="/tag/rtl8187l/" class="set-1">rtl8187l</a> <a href="/tag/screensaver/" class="set-1">screensaver</a> <a href="/tag/sha-1/" class="set-1">sha-1</a> <a href="/tag/shairport-sync/" class="set-1">shairport-sync</a> <a href="/tag/spotcast/" class="set-1">spotcast</a> <a href="/tag/spotify/" class="set-5">spotify</a> <a href="/tag/ssh/" class="set-1">ssh</a> <a href="/tag/static/" class="set-1">static</a> <a href="/tag/statusruntimeexception/" class="set-1">statusruntimeexception</a> <a href="/tag/stream/" class="set-1">stream</a> <a href="/tag/streamobserver/" class="set-1">streamobserver</a> <a href="/tag/telegram/" class="set-1">telegram</a> <a href="/tag/ubiquiti/" class="set-1">ubiquiti</a> <a href="/tag/ue-boom/" class="set-5">ue boom</a> <a href="/tag/unable-to-attach/" class="set-1">unable to attach</a> <a href="/tag/unifi/" class="set-1">unifi</a> <a href="/tag/unintended/" class="set-1">unintended</a> <a href="/tag/web/" class="set-1">web</a> <a href="/tag/webcore/" class="set-1">webcore</a> <a href="/tag/webkit/" class="set-1">webkit</a> <a href="/tag/wifi/" class="set-1">wifi</a> <a href="/tag/xcode/" class="set-1">xcode</a></div>
+  
+
+
+
+
+<script>
+  let i = 0;
+  const text = '';
+  const speed = parseInt('50');
+  
+  function typeWriter() {
+    if (i < text.length) {
+      document.getElementById('animated-post-description').innerHTML += text.charAt(i);
+      i++;
+      setTimeout(typeWriter, speed);
+    }
+  }
+
+  document.getElementById('animated-post-description').style.display = 'initial';
+  typeWriter();
+
+  // Image modal
+  var $imgs = [];
+  $('img').each(function(idx) {
+    var obj = {
+      src: $(this).attr('src')
+    }
+    $imgs.push(obj);
+    var elem = $(this);
+    $(this).click(function() {
+      $('.modal').magnificPopup('open', idx);
+    });
+  });
+
+  $('.modal').magnificPopup({
+    items: $imgs,
+    type: 'image',
+    closeOnContentClick: true,
+    mainClass: 'mfp-img-mobile',
+    image: {
+      verticalFit: true
+    }
+    
+  });
+</script>
+
+      </div>
+    </main><footer class="site-footer">
+  <div class="wrapper">
+    <div class="credits"><a href="https://github.com/bitbrain/jekyll-dash">dash</a> theme for Jekyll by <a href="https://github.com/bitbrain">bitbrain</a> made with <i class="fas fa-heart"></i><div class="toggleWrapper">
+    <input type="checkbox" class="dn" id="theme-toggle" onclick="modeSwitcher()" checked />
+    <label for="theme-toggle" class="toggle">
+    <span class="toggle__handler">
+      <span class="crater crater--1"></span>
+      <span class="crater crater--2"></span>
+      <span class="crater crater--3"></span>
+    </span>
+        <span class="star star--1"></span>
+        <span class="star star--2"></span>
+        <span class="star star--3"></span>
+        <span class="star star--4"></span>
+        <span class="star star--5"></span>
+        <span class="star star--6"></span>
+    </label>
+</div>
+<script type="text/javascript">
+const theme = localStorage.getItem('theme');
+
+if (theme === "light") {
+    document.documentElement.setAttribute('data-theme', 'light');
+} else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+}
+const userPrefers = getComputedStyle(document.documentElement).getPropertyValue('content');
+
+function activateDarkTheme() {
+    document.getElementById('theme-toggle').checked = true;
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add('theme--dark');
+    document.documentElement.classList.remove('theme--light');
+	document.getElementById("theme-toggle").className = 'light';
+	window.localStorage.setItem('theme', 'dark');
+}
+
+function activateLightTheme() {
+    document.getElementById('theme-toggle').checked = false;
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.add('theme--light');
+    document.documentElement.classList.remove('theme--dark');
+	document.getElementById("theme-toggle").className = 'dark';
+	window.localStorage.setItem('theme', 'light');
+}
+
+if (theme === "dark") {
+    activateDarkTheme();
+} else if (theme === "light") {
+    activateLightTheme();
+} else if  (userPrefers === "light") {
+    activateDarkTheme();
+} else {
+    activateDarkTheme();
+}
+
+function modeSwitcher() {
+	let currentMode = document.documentElement.getAttribute('data-theme');
+	if (currentMode === "dark") {
+	    activateLightTheme();
+	} else {
+	    activateDarkTheme();
+	}
+}
+</script></div>
+  </div>
+</footer>
+
+
+<script>
+      window.FontAwesomeConfig = {
+        searchPseudoElements: true
+      }
+    </script>
+  </body>
+
+</html>

