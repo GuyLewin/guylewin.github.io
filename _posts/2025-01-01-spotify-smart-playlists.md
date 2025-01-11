@@ -1,5 +1,6 @@
 ---
 title: 'Spotify Smart Playlists'
+date: '2025-01-01T16:38:57-05:00'
 author: Guy Lewin
 layout: post
 tags:
