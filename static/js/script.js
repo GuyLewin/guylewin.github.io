@@ -4,12 +4,10 @@ class ThemeManager {
         if (!this.toggle) return;
 
         this.icon = document.getElementById('theme-icon');
-        const { iconBase, iconDark, iconLight, soundSrc, linkedinIconDark, linkedinIconLight } = this.toggle.dataset;
+        const { iconBase, iconDark, iconLight, soundSrc } = this.toggle.dataset;
         this.iconBase = iconBase;
         this.iconDark = iconDark;
         this.iconLight = iconLight;
-        this.linkedinIconDark = linkedinIconDark;
-        this.linkedinIconLight = linkedinIconLight;
 
         // Create audio element lazily only when needed
         this.sound = null;
@@ -62,9 +60,6 @@ class ThemeManager {
             this.icon.setAttribute('href',
                 `${this.iconBase}${isDark ? this.iconDark : this.iconLight}`);
         }
-
-        document.getElementById('linkedin-icon').setAttribute('href',
-            `${this.iconBase}${isDark ? this.linkedinIconDark : this.linkedinIconLight}`);
     }
 }
 
