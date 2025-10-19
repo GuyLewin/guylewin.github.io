@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+    {% set blog_section = get_section(path="blog/_index.md") %}
+    {{ blog_section.content | safe }}
+
+    <ul class="posts">
+        {% for page in blog_section.pages %}
+        <li>
+            <a href="{{ page.permalink }}">{{ page.title }}</a>
+            <span class="date">{{ page.date | date(format="%Y-%m-%d") }}</span>
+        </li>
+        {% endfor %}
+    </ul>
+
+    {% include "partials/pagination.html" %}
+{% endblock %}

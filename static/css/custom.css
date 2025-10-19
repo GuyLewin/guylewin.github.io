@@ -1,0 +1,58 @@
+h2::before {
+    content: '## ';
+}
+
+h3::before {
+    content: '### ';
+}
+
+h4::before {
+    content: '#### ';
+}
+
+a.icon-link {
+    background-color: unset;
+}
+
+.about_me {
+    width: 50%;
+    float: left;
+}
+
+.post-nav a.previous {
+    float: left;
+}
+
+.post-nav a.next {
+    float: right;
+    text-align: right;
+}
+
+.post-nav {
+    margin-top: 20px;
+}
+
+.post-nav svg {
+    color: unset;
+}
+
+pre {
+    margin: 1em 0;
+}
+
+@media only screen and (max-width:720px) {
+    .about_me {
+        width: 100%;
+        float: unset;
+        margin-bottom: 20px;
+    }
+
+    .post-nav a.previous, .post-nav a.next {
+        display: block;
+        float: unset;
+    }
+
+    .post-nav a.next {
+        margin-top: 20px;
+    }
+}

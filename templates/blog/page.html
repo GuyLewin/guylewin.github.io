@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block extra_head %}
+{{ super() }}
+
+{# Article-specific Meta Tags #}
+{% if page.date %}
+<meta property="article:published_time" content="{{ page.date | date(format='%Y-%m-%dT%H:%M:%SZ') }}">
+{% endif %}
+
+{% if page.updated %}
+<meta property="article:modified_time" content="{{ page.updated | date(format='%Y-%m-%dT%H:%M:%SZ') }}">
+{% endif %}
+
+{% if page.extra.author %}
+<meta property="article:author" content="{{ page.extra.author }}">
+{% endif %}
+
+<meta property="article:section" content="Blog">
+
+{% if page.taxonomies.tags %}
+{% for tag in page.taxonomies.tags %}
+<meta property="article:tag" content="{{ tag }}">
+{% endfor %}
+{% endif %}
+
+{% include "partials/schema-article.html" %}
+{% endblock %}
+
+{% block content %}
+<article class="post">
+    <header class="post-header">
+        {% if page.date and page.extra.display_published | default(value=true) %}
+        <time datetime="{{ page.date }}">Published on:
+            <span class="accent-data">{{ page.date | date(format="%Y-%m-%d") }}</span>
+        </time>
+        {% endif %}
+
+        {% if page.extra.author %}
+        <address rel="author">By
+            <span class="accent-data">{{ page.extra.author }}</span>
+        </address>
+        {% endif %}
+
+        <h1>{{ page.title }}</h1>
+    </header>
+
+{% if page.extra.toc and page.toc %}
+<div class="toc-container">
+    <h2>Table of content</h2>
+    <ul> 
+        {% for h1 in page.toc %}
+        <li>
+            <a href="{{ h1.permalink | safe }}">{{ h1.title }}</a>
+            {% if h1.children %}
+            <ul>
+                {% for h2 in h1.children %}
+                <li><a href="{{ h2.permalink | safe }}">{{ h2.title }}</a></li>
+                {% endfor %}
+            </ul>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+    <div class="post-content">
+        {{ page.content | safe }}
+    </div>
+
+    {% if page.taxonomies.tags %}
+    <div class="post-tags">
+        {% for tag in page.taxonomies.tags %}
+        <a href="/tags/{{ tag | slugify }}" class="tag">#{{ tag }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="post-nav">
+        {% if page.lower %}
+        <a class="previous" href="{{ page.lower.permalink }}"><svg class="icon"><use href="{{ get_url(path='icons.svg#chevronLeft') }}"></use></svg> Next Project</a>
+        {% endif %}
+        {% if page.higher %}
+        <a class="next" href="{{ page.higher.permalink }}">Previous Project <svg class="icon"><use href="{{ get_url(path='icons.svg#chevronRight') }}"></use></svg></a>
+        {% endif %}
+    </div>
+</article>
+{% endblock %}
