@@ -1,6 +1,7 @@
 +++
 title = "About Me"
 description = "About Guy Lewin - Software engineer passionate about Rust, Home Assistant, and technology. Currently living in NYC."
+path = "about"
 [extra]
 keywords = ["Guy Lewin", "software engineer", "Rust", "Home Assistant", "technology", "NYC", "programming"]
 +++

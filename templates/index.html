@@ -1,11 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-    {% set blog_section = get_section(path="blog/_index.md") %}
-    {{ blog_section.content | safe }}
+    {{ section.content | safe }}
 
     <ul class="posts">
-        {% for page in blog_section.pages %}
+        {% for page in paginator.pages %}
         <li>
             <a href="{{ page.permalink }}">{{ page.title }}</a>
             <span class="date">{{ page.date | date(format="%Y-%m-%d") }}</span>
