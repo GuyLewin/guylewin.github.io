@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    {# Homepage #}
+    <url>
+        <loc>https://guylewin.com</loc>
+        <lastmod>{{ now() | date(format="%Y-%m-%d") }}</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>1.0</priority>
+    </url>
+
+    {# Pages #}
+    {% set pages_subsection = get_section(path="pages/_index.md") %}
+    {% for page in pages_subsection.pages %}
+    <url>
+        <loc>{{ page.permalink | safe }}</loc>
+        {% if page.date %}<lastmod>{{ page.date | date(format="%Y-%m-%d") }}</lastmod>{% endif %}
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    {% endfor %}
+    
+    {# Blog Posts #}
+    {% set root = get_section(path="_index.md") %}
+    {% for page in root.pages %}
+    <url>
+        <loc>{{ page.permalink | safe }}</loc>
+        {% if page.date %}<lastmod>{{ page.date | date(format="%Y-%m-%d") }}</lastmod>{% endif %}
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    {% endfor %}
+</urlset>

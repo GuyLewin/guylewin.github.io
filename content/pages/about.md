@@ -2,7 +2,9 @@
 title = "About Me"
 description = "About Guy Lewin - Software engineer passionate about Rust, Home Assistant, and technology. Currently living in NYC."
 path = "about"
+date = 2025-10-19
 [extra]
+display_published = false
 keywords = ["Guy Lewin", "software engineer", "Rust", "Home Assistant", "technology", "NYC", "programming"]
 +++
 {{ img(id="/images/about/me.jpg", class="about_me") }}
