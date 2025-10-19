@@ -64,7 +64,7 @@ class ThemeManager {
         }
 
         document.getElementById('linkedin-icon').setAttribute('href',
-            `${isDark ? this.linkedinIconDark : this.linkedinIconLight}`);
+            `${this.iconBase}${isDark ? this.linkedinIconDark : this.linkedinIconLight}`);
     }
 }
 

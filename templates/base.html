@@ -32,6 +32,10 @@
         <meta name="description" content="{{ page.description }}">
         <meta property="og:description" content="{{ page.description }}">
         <meta name="twitter:description" content="{{ page.description }}">
+        {% elif section.description %}
+        <meta name="description" content="{{ section.description }}">
+        <meta property="og:description" content="{{ section.description }}">
+        <meta name="twitter:description" content="{{ section.description }}">
         {% endif %}
 
         {% if page.extra.keywords %}
@@ -77,28 +81,34 @@
         {% set current_lang = section.lang %}
         {% endif %}
         <nav id="nav-bar">
-            {% for nav_item in config.extra.header_nav %}
-            <a href="{{ nav_item.url }}" class="{% if current_url is defined and nav_item.url == current_url %}active{% endif %}">
-                {% set language_key = 'name_' ~ current_lang %}
-                {{ nav_item[language_key] }}
-            </a>
-            {% endfor %}
+            <div class="nav-social">
+                <a href="https://x.com/GuyLevin" target="_blank" class="icon-link"><svg class="icon"><use href="{{ get_url(path='icons.svg#x') }}"></use></svg></a>
+                <a href="https://www.linkedin.com/in/guy-lewin-48b00712" target="_blank" class="icon-link"><svg class="icon"><use id="linkedin-icon" href="{{ get_url(path='icons.svg#linkedInDarkMode') }}"></use></svg></a>
+                <a href="https://github.com/GuyLewin" target="_blank" class="icon-link"><svg class="icon"><use href="{{ get_url(path='icons.svg#github') }}"></use></svg></a>
+                <a href="mailto:contact@guylewin.com" target="_blank" class="icon-link"><svg class="icon"><use href="{{ get_url(path='icons.svg#email') }}"></use></svg></a>
+            </div>
 
-            <a href="https://github.com/GuyLewin" target="_blank" class="icon-link"><svg class="icon"><use href="{{ get_url(path='images/social/x.svg') }}"></use></svg></a>
-            <a href="https://www.linkedin.com/in/guy-lewin-48b00712" target="_blank" class="icon-link"><svg class="icon"><use id="linkedin-icon" href="{{ get_url(path='images/social/linkedin-dark.svg') }}"></use></svg></a>
-            <a href="https://github.com/GuyLewin" target="_blank" class="icon-link"><svg class="icon"><use href="{{ get_url(path='images/social/github.svg') }}"></use></svg></a>
-            <a href="mailto:contact@guylewin.com" target="_blank" class="icon-link"><svg class="icon"><use href="{{ get_url(path='images/social/email.svg') }}"></use></svg></a>
+            <div class="nav-menu">
+                {% for nav_item in config.extra.header_nav %}
+                <a href="{{ nav_item.url }}" class="{% if current_url is defined and nav_item.url == current_url %}active{% endif %}">
+                    {% set language_key = 'name_' ~ current_lang %}
+                    {{ nav_item[language_key] }}
+                </a>
+                {% endfor %}
+            </div>
 
-            <div class="theme-toggle" id="theme-toggle" role="button" tabindex="0" aria-label="Toggle theme"
-                data-icon-base="{{ get_url(path='icons.svg') }}"
-                data-icon-dark="#darkMode"
-                data-icon-light="#lightMode"
-                data-sound-src="{{ get_url(path='click.ogg') }}"
-                data-linkedin-icon-dark="{{ get_url(path='images/social/linkedin-dark.svg') }}"
-                data-linkedin-icon-light="{{ get_url(path='images/social/linkedin-light.svg') }}">
-                <svg class="icon">
-                    <use id="theme-icon"></use>
-                </svg>
+            <div class="nav-controls">
+                <div class="theme-toggle" id="theme-toggle" role="button" tabindex="0" aria-label="Toggle theme"
+                    data-icon-base="{{ get_url(path='icons.svg') }}"
+                    data-icon-dark="#darkMode"
+                    data-icon-light="#lightMode"
+                    data-sound-src="{{ get_url(path='click.ogg') }}"
+                    data-linkedin-icon-dark="#linkedInDarkMode"
+                    data-linkedin-icon-light="#linkedInLightMode">
+                    <svg class="icon">
+                        <use id="theme-icon"></use>
+                    </svg>
+                </div>
             </div>
         </nav>
 

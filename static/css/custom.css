@@ -40,6 +40,31 @@ pre {
     margin: 1em 0;
 }
 
+/* Nav-bar flexbox layout */
+#nav-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.nav-social {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.nav-menu {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.nav-controls {
+    display: flex;
+    align-items: center;
+}
+
 @media only screen and (max-width:720px) {
     .about_me {
         width: 100%;
