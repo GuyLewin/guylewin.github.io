@@ -2,7 +2,10 @@
 base_url = "https://guylewin.com"
 default_language = "en"
 title = "Guy Lewin's Blog"
-description = "Documenting things I found useful."
+description = "Code, tools, and experiments that made my life (and hopefully yours) easier."
+minify_html = true
+generate_sitemap = true
+generate_robots_txt = true
 
 theme = "anemone"
 

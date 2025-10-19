@@ -8,4 +8,4 @@ keywords = ["Guy Lewin", "software engineer", "Rust", "Home Assistant", "technol
 {{ img(id="/images/about/me.jpg", class="about_me") }}
 Hi! I'm Guy, a software engineer currently living in NYC.
 
-I'm passionate about Rust 🦀, Home Assistant 🏠️ and eating good food 🥩.
+I'm passionate about Rust 🦀, Home Assistant 🏠️, eating good food 🥩 and drinking too much coffee ☕️.
