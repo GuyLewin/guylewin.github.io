@@ -1,0 +1,137 @@
+<!doctype html><html lang=en><head><meta charset=UTF-8><meta content="width=device-width,initial-scale=1.0" name=viewport><link href=https://guylewin.com/rss.xml rel=alternate title=RSS type=application/rss+xml><title>Guy Lewin's Blog | Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant</title><link as=style href=https://guylewin.com/css/style.css rel=preload><link crossorigin href=https://raw.githack.com/Speyll/suCSS/main/reset-min.css rel=stylesheet><link crossorigin href=https://raw.githack.com/Speyll/suCSS/main/suCSS-min.css rel=stylesheet><link href=https://guylewin.com/css/style.css rel=stylesheet><link href=https://guylewin.com/css/custom.css rel=stylesheet><link href=https://guylewin.com/favicon.ico rel=icon><script src="https://www.googletagmanager.com/gtag/js?id=G-YEJ89F03YG" async></script><script>window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+
+            gtag('config', 'G-YEJ89F03YG');</script><meta content="Building a smart speaker system that can play music on demand from Home Assistant and support Spotify Connect connectivity using a Raspberry Pi and Bluetooth speaker." name=description><meta content="Building a smart speaker system that can play music on demand from Home Assistant and support Spotify Connect connectivity using a Raspberry Pi and Bluetooth speaker." property=og:description><meta content="Building a smart speaker system that can play music on demand from Home Assistant and support Spotify Connect connectivity using a Raspberry Pi and Bluetooth speaker." name=twitter:description><meta content="home assistant, pi-btaudio, raspberry pi, raspotify, spotcast, spotify, ue boom" name=keywords><meta content=Zola name=generator><meta content=English name=language><meta content="index, follow" name=robots><meta content="index, follow" name=googlebot><meta content=en_US property=og:locale><meta content="Guy Lewin's Blog" property=og:site_name><meta content="Guy Lewin's Blog | Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant" property=og:title><meta content=https://guylewin.com/blog/2021-09-16-bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/ property=og:url><meta content=article property=og:type><meta content=summary_large_image name=twitter:card><meta content="Guy Lewin's Blog | Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant" name=twitter:title><link href=https://guylewin.com/blog/2021-09-16-bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/ rel=canonical><meta content="Guy Lewin" name=author><meta content="Guy Lewin" property=og:author><meta content=2021-09-16T00:00:00Z property=article:published_time><meta content="Guy Lewin" property=article:author><meta content=Blog property=article:section><meta content="home assistant" property=article:tag><meta content=pi-btaudio property=article:tag><meta content="raspberry pi" property=article:tag><meta content=raspotify property=article:tag><meta content=spotcast property=article:tag><meta content=spotify property=article:tag><meta content="ue boom" property=article:tag><script type=application/ld+json>
+{
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant",
+    
+    "author": {
+        "@type": "Person",
+        "name": "Guy Lewin"
+    },
+    
+    
+    "datePublished": "2021-09-16",
+    
+    "description": "Building a smart speaker system that can play music on demand from Home Assistant and support Spotify Connect connectivity using a Raspberry Pi and Bluetooth speaker.",
+    "publisher": {
+        "@type": "Organization",
+        "name": "Guy Lewin&#x27;s Blog"
+    }
+}
+</script><body><nav id=nav-bar><div class=nav-social><a class=icon-link href=https://www.threads.com/@guylewin target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#threads></use></svg></a><a class=icon-link href=https://www.linkedin.com/in/guy-lewin-48b00712 target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#linkedin></use></svg></a><a class=icon-link href=https://github.com/GuyLewin target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#github></use></svg></a><a class=icon-link href=mailto:contact@guylewin.com target=_blank><svg class=icon><use href=https://guylewin.com/icons.svg#email></use></svg></a></div><div class=nav-menu><a href=/> /blog/ </a><a href=/about> /about/ </a></div><div class=nav-controls><div aria-label="Toggle theme" class=theme-toggle data-icon-base=https://guylewin.com/icons.svg data-icon-dark=#darkMode data-icon-light=#lightMode data-sound-src=https://guylewin.com/click.ogg id=theme-toggle role=button tabindex=0><svg class=icon><use id=theme-icon></use></svg></div></div></nav><main><article class=post><header class=post-header><time datetime=2021-09-16>Published on: <span class=accent-data>2021-09-16</span> </time><address rel=author>By <span class=accent-data>Guy Lewin</span></address><h1>Bathroom Smart Speaker using UE Boom, Raspberry Pi, Spotify and Home Assistant</h1></header><div class=post-content><h2 id=goal>Goal</h2><p>We’re going to build a smart speaker system that can play tropical forest sounds (or any other Spotify playlist) on demand from Home Assistant, and support Spotify Connect connectivity to cast music from other Spotify clients (if you want to put your own music while showering).<h2 id=why>Why?</h2><p>Who doesn’t like showering with music? And if you already put a speaker in your bathroom, why not put some tropical background sounds while you’re at it?<h2 id=hardware-requirements>Hardware Requirements</h2><p>I’m using the following hardware for my setup:<ul><li><a href=https://www.ultimateears.com/en-us/wireless-speakers/boom-3.html rel=noopener target=_blank>UE </a><a href=https://www.ultimateears.com/en-us/wireless-speakers/boom-3.html rel=noopener target=_blank>Boom</a> (I’m actually using UE Boom 2 but any UE Boom would work).<li><a href=https://www.raspberrypi.org/products/raspberry-pi-zero-w/ rel=noopener target=_blank>Raspberry Pi Zero W</a> (any Raspberry Pi with Bluetooth will work. Make sure it’ll also have WiFi since most bathrooms don’t have an Ethernet port). <ul><li>microSD card and power adapter for the Raspberry Pi.</ul><li>Optional: <a href=https://www.aqara.com/us/motion_sensor.html rel=noopener target=_blank>Aqara Motion Sensor</a> + <a href=https://www.phoscon.de/en/conbee2 rel=noopener target=_blank>ConBee II</a> (if you want to turn music on / off based on motion).</ul><h2 id=additional-requirements>Additional Requirements</h2><ul><li><a href=https://www.home-assistant.io/ rel=noopener target=_blank>Home Assistant</a> installation in LAN.<li>Spotify Premium account.</ul><h2 id=steps>Steps</h2><h3 id=preparing-the-raspberry-pi>Preparing the Raspberry Pi</h3><p>Install <a href=https://www.raspberrypi.org/software/ rel=noopener target=_blank>Raspberry Pi OS</a> on your device by using software such as <a href=https://www.raspberrypi.org/documentation/computers/getting-started.html#using-raspberry-pi-imager rel=noopener target=_blank>Raspberry Pi Imager</a>. I chose to install the "Raspberry Pi OS with desktop" flavor.<h3 id=installing-raspotify>Installing Raspotify</h3><p>Once the RPi is installed and connected to your local network, connect via SSH and run the following command to install <a href=https://github.com/dtcooper/raspotify rel=noopener target=_blank>Raspotify</a> - the Spotify connect server for Raspberry Pi:<pre class=language-bash data-lang=bash style=color:#fdf4c1aa;background-color:#282828><code class=language-bash data-lang=bash><span style=color:#928374;font-style:italic># Install Raspotify
+</span><span style=color:#fdf4c1>curl -sL https://dtcooper.github.io/raspotify/install.sh </span><span style=color:#fe8019>| </span><span style=color:#fdf4c1>sh
+</span></code></pre><p>After installation, edit <code>/etc/default/raspotify</code> to change some parameters:<ul><li>Uncomment (remove the # at the beginning) the line that starts with <code>DEVICE_NAME</code> and name your Spotify connect server (e.g. <code>Bathroom Speaker</code>)<li>Uncomment (remove the # at the beginning) the line that starts with <code>OPTIONS</code> in order to specify your Spotify premium credentials. This is crucial to allow Home Assistant to play music on this speaker</ul><p>The file should look like this (<strong>while changing every <code>&lt;></code> parameter</strong>):<pre style=color:#fdf4c1aa;background-color:#282828><code><span># /etc/default/raspotify -- Arguments/configuration for librespot
+</span><span>
+</span><span># Device name on Spotify Connect
+</span><span>DEVICE_NAME="&lt;Speaker Name>"
+</span><span>
+</span><span># The displayed device type in Spotify clients.
+</span><span># Can be "unknown", "computer", "tablet", "smartphone", "speaker", "tv",
+</span><span># "avr" (Audio/Video Receiver), "stb" (Set-Top Box), and "audiodongle".
+</span><span>#DEVICE_TYPE="speaker"
+</span><span>
+</span><span># Bitrate, one of 96 (low quality), 160 (default quality), or 320 (high quality)
+</span><span>#BITRATE="160"
+</span><span>
+</span><span># Additional command line arguments for librespot can be set below.
+</span><span># See `librespot -h` for more info. Make sure whatever arguments you specify
+</span><span># aren't already covered by other variables in this file. (See the daemon's
+</span><span># config at `/lib/systemd/system/raspotify.service` for more technical details.)
+</span><span>#
+</span><span># To make your device visible on Spotify Connect across the Internet add your
+</span><span># username and password which can be set via "Set device password", on your
+</span><span># account settings, use `--username` and `--password`.
+</span><span>#
+</span><span># To choose a different output device (ie a USB audio dongle or HDMI audio out),
+</span><span># use `--device` with something like `--device hw:0,1`. Your mileage may vary.
+</span><span>#
+</span><span>OPTIONS="--username '&lt;Put Spotify Premium Username Here>' --password '&lt;Put Spotify Premium Password Here>'"
+</span><span>
+</span><span># Uncomment to use a cache for downloaded audio files. Cache is disabled by
+</span><span># default. It's best to leave this as-is if you want to use it, since
+</span><span># permissions are properly set on the directory `/var/cache/raspotify'.
+</span><span>#CACHE_ARGS="--cache /var/cache/raspotify"
+</span><span>
+</span><span># By default, the volume normalization is enabled, add alternative volume
+</span><span># arguments here if you'd like, but these should be fine.
+</span><span>#VOLUME_ARGS="--enable-volume-normalisation --volume-ctrl linear --initial-volume=100"
+</span><span>
+</span><span># Backend could be set to pipe here, but it's for very advanced use cases of
+</span><span># librespot, so you shouldn't need to change this under normal circumstances.
+</span><span>#BACKEND_ARGS="--backend alsa"
+</span></code></pre><h3 id=installing-pi-btaudio>Installing pi-btaudio</h3><p>pi-btaudio is a suite of packages that allow your RPi to connect to UE Boom automatically, and make sure the connection stays active.<p>Start by going over the <a href=https://github.com/bablokb/pi-btaudio#prerequisites rel=noopener target=_blank>prerequisites</a>, make sure to write down the MAC address of your UE Boom. In order to connect to a UE Boom, you must press its Bluetooth pairing button for it to accept new connections.<p>Once you’re done, follow <a href=https://github.com/bablokb/pi-btaudio#installation rel=noopener target=_blank>their installation steps</a> to install the tools. Edit the configuration file in <code>/etc/asound.conf</code> with the following content (<strong>make sure you replace <code>&lt;UE Boom Bluetooth MAC></code> with the one found during prerequisites</strong>):<pre style=color:#fdf4c1aa;background-color:#282828><code><span>pcm.!default "bluealsa"
+</span><span>ctl.!default "bluealsa"
+</span><span>defaults.bluealsa.interface "hci0"
+</span><span>defaults.bluealsa.device "&lt;UE Boom Bluetooth MAC>"
+</span><span>defaults.bluealsa.profile "a2dp"
+</span></code></pre><h3 id=raspotify-watchdog-restarter>Raspotify Watchdog Restarter</h3><p>Providing credentials as options to Raspotify ensures Home Assistant will be able to connect and play music remotely. But after someone else uses Spotify Connect to cast music into Raspotify - it’s unable to reconnect using the credentials provided in the configuration file.<p>To solve this, I wrote a small API server in Python to restart Raspotify once I want to turn it off (when motion sensor turns off).<p>Start by creating a <code>~/watchdog</code> directory and placing the following content in <code>~/watchdog/server.py</code> (<strong>replace <code>&lt;Secret Restart Password QueryString></code> with some long string that should be kept secret</strong>):<pre class=language-python data-lang=python style=color:#fdf4c1aa;background-color:#282828><code class=language-python data-lang=python><span style=color:#fa5c4b>import </span><span>os
+</span><span style=color:#fa5c4b>from </span><span>http.server </span><span style=color:#fa5c4b>import </span><span>HTTPServer, BaseHTTPRequestHandler
+</span><span>
+</span><span style=color:#fa5c4b>class </span><span style=color:#8ec07c>MyHandler</span><span>(</span><span style=color:#8ec07c>BaseHTTPRequestHandler</span><span>):
+</span><span>    </span><span style=color:#fa5c4b>def </span><span style=color:#8ec07c>do_GET</span><span>(</span><span style=color:#fdf4c1>self</span><span>):
+</span><span>        </span><span style=color:#fa5c4b>if </span><span style=color:#fdf4c1>self</span><span>.path </span><span style=color:#fe8019>!= </span><span style=color:#b8bb26>"/?&lt;Secret Restart Password QueryString>"</span><span>:
+</span><span>            </span><span style=color:#fdf4c1>self.send_response(</span><span style=color:#d3869b>401</span><span style=color:#fdf4c1>)
+</span><span>            </span><span style=color:#fdf4c1>self.end_headers()
+</span><span>            </span><span style=color:#fdf4c1>self.wfile.write(</span><span style=color:#fabd2f>bytes</span><span style=color:#fdf4c1>(</span><span style=color:#b8bb26>"Bye bye"</span><span style=color:#fdf4c1>, </span><span style=color:#b8bb26>"utf-8"</span><span style=color:#fdf4c1>))
+</span><span>            </span><span style=color:#fa5c4b>return
+</span><span>        </span><span style=color:#928374;font-style:italic># send 200 response
+</span><span>        </span><span style=color:#fdf4c1>self.send_response(</span><span style=color:#d3869b>200</span><span style=color:#fdf4c1>)
+</span><span>        </span><span style=color:#928374;font-style:italic># send response headers
+</span><span>        </span><span style=color:#fdf4c1>self.end_headers()
+</span><span>        </span><span style=color:#928374;font-style:italic># send the body of the response
+</span><span>        </span><span style=color:#fdf4c1>os.system(</span><span style=color:#b8bb26>"sudo systemctl restart raspotify.service"</span><span style=color:#fdf4c1>)
+</span><span>        </span><span style=color:#fdf4c1>self.wfile.write(</span><span style=color:#fabd2f>bytes</span><span style=color:#fdf4c1>(</span><span style=color:#b8bb26>"Restarted"</span><span style=color:#fdf4c1>, </span><span style=color:#b8bb26>"utf-8"</span><span style=color:#fdf4c1>))
+</span><span>
+</span><span>httpd </span><span style=color:#fe8019>= </span><span style=color:#fdf4c1>HTTPServer((</span><span style=color:#b8bb26>''</span><span style=color:#fdf4c1>, </span><span style=color:#d3869b>9876</span><span style=color:#fdf4c1>), MyHandler)
+</span><span style=color:#fdf4c1>httpd.serve_forever()
+</span></code></pre><p>Then create the file <code>/lib/systemd/system/restart_raspotify.service</code> with the following content:<pre style=color:#fdf4c1aa;background-color:#282828><code><span>[Unit]
+</span><span>Description=Restart raspotify service
+</span><span>After=multi-user.target
+</span><span>Conflicts=getty@tty1.service
+</span><span>
+</span><span>[Service]
+</span><span>Type=simple
+</span><span>ExecStart=/usr/bin/python3 /home/pi/watchdog/server.py
+</span><span>StandardInput=tty-force
+</span><span>
+</span><span>[Install]
+</span><span>WantedBy=multi-user.target
+</span></code></pre><p>To enable the newly created service, run:<pre class=language-bash data-lang=bash style=color:#fdf4c1aa;background-color:#282828><code class=language-bash data-lang=bash><span style=color:#fdf4c1>systemctl enable restart_raspotify.service
+</span><span style=color:#fdf4c1>systemctl start restart_raspotify.service
+</span></code></pre><h3 id=spotcast-on-home-assistant>Spotcast on Home Assistant</h3><p>Spotcast enables Home Assistant to play music on Spotify Connect-enabled devices, like our Raspotify system. Follow the <a href=https://github.com/fondberg/spotcast#installation rel=noopener target=_blank>installation steps</a> to install on your Home Assistant instance. After installing, you need to configure Home Assistant to authenticate using your Spotify Premium account by following the <a href=https://github.com/fondberg/spotcast#configuration rel=noopener target=_blank>configuration steps</a>.<p>After restarting Home Assistant, you’ll be able to use Spotcast to play music on your speaker through Raspotify by calling this Home Assistant service (<strong>replace <code>&lt;Speaker Name></code> with what you specified in <code>/etc/default/raspotify</code>, and <code>&lt;Spotify Playlist URI></code> with the Spotify-formatted URI such as <code>spotify:album:2PPfl28ysMbOkl2DBJ5Dr4</code> - a good rainforest nature album</strong>):<pre class=language-yaml data-lang=yaml style=color:#fdf4c1aa;background-color:#282828><code class=language-yaml data-lang=yaml><span style=color:#8ec07c;font-weight:700>data</span><span>:
+</span><span>  </span><span style=color:#8ec07c;font-weight:700>device_name</span><span>: </span><span style=color:#b8bb26>"&lt;Speaker Name>"
+</span><span>  </span><span style=color:#8ec07c;font-weight:700>random_song</span><span>: </span><span style=color:#d3869b>true
+</span><span>  </span><span style=color:#8ec07c;font-weight:700>uri</span><span>: </span><span style=color:#b8bb26>"&lt;Spotify Playlist URI>"
+</span><span>  </span><span style=color:#8ec07c;font-weight:700>start_volume</span><span>: </span><span style=color:#d3869b>15
+</span><span>  </span><span style=color:#8ec07c;font-weight:700>force_playback</span><span>: </span><span style=color:#d3869b>true
+</span><span style=color:#8ec07c;font-weight:700>service</span><span>: </span><span style=color:#b8bb26>spotcast.start
+</span></code></pre><h3 id=raspotify-restart-via-home-assistant>Raspotify Restart via Home Assistant</h3><p>Edit Home Assistant’s <code>configuration.yaml</code> file (by <a href=https://www.home-assistant.io/getting-started/configuration/ rel=noopener target=_blank>installing the File Editor</a> or by any other method) and insert the following to the configuration (<strong>replace &lt;Secret Restart Password QueryString> with what you chose in <code>~/watchdog/server.py</code></strong>):<pre class=language-yaml data-lang=yaml style=color:#fdf4c1aa;background-color:#282828><code class=language-yaml data-lang=yaml><span style=color:#8ec07c;font-weight:700>rest_command</span><span>:
+</span><span>  </span><span style=color:#8ec07c;font-weight:700>restart_raspotify</span><span>:
+</span><span>    </span><span style=color:#8ec07c;font-weight:700>url</span><span>: </span><span style=color:#b8bb26>"http://&lt;Raspberry Pi IP>:9876/?&lt;Secret Restart Password QueryString>"
+</span></code></pre><p>After another Home Assistant restart, you’ll be able to invoke the following service to restart Raspotify and make it re-authenticate using the configured credentials:<pre class=language-yaml data-lang=yaml style=color:#fdf4c1aa;background-color:#282828><code class=language-yaml data-lang=yaml><span style=color:#8ec07c;font-weight:700>service</span><span>: </span><span style=color:#b8bb26>rest_command.restart_raspotify
+</span></code></pre><h3 id=connecting-it-all-together-in-home-assistant>Connecting It All Together in Home Assistant</h3><p>I configured an automation to trigger when the motion sensor is activated - it will play the rainforest nature album (<code>spotify:album:2PPfl28ysMbOkl2DBJ5Dr4</code>). When the motion sensor is deactivated - it runs restart_raspotify to reset Raspotify to the configured credentials and be ready for the next person to walk in.<p>If anyone wants the full Home Assistant setup, write a comment and I’ll upload that as well.<h3 id=adding-airplay-support>Adding AirPlay Support</h3><p>Follow the instructions in the <a href=https://lewin.co.il/bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/ rel=noopener target=_blank>follow-up post</a>.<h2 id=bonus-turning-ue-boom-on-via-raspberry-pi>Bonus - Turning UE Boom On via Raspberry Pi</h2><p>UE Boom is listening for Bluetooth commands even when turned off. You can use your phone (if paired with the speaker) to turn the speaker on remotely. You can do the same with Raspberry Pi after it’s connected. To do so, first install NodeJS (I chose version 14.15.4 while writing this, there’s probably a newer version available when you’re reading this). There’s no official NodeJS release for Raspberry Pi Zero W, but this unofficial installation works great for me:<pre class=language-bash data-lang=bash style=color:#fdf4c1aa;background-color:#282828><code class=language-bash data-lang=bash><span style=color:#928374;font-style:italic>#!/bin/bash
+</span><span style=color:#fa5c4b>export </span><span style=color:#fdf4c1>NODE_VER</span><span style=color:#fe8019>=</span><span style=color:#b8bb26>14.15.4
+</span><span style=color:#fa5c4b>if </span><span style=color:#fe8019>! </span><span style=color:#fdf4c1>node --version </span><span style=color:#fe8019>| </span><span style=color:#fdf4c1>grep -q ${NODE_VER}</span><span style=color:#fe8019>; </span><span style=color:#fa5c4b>then
+</span><span>  (</span><span style=color:#fdf4c1>cat /proc/cpuinfo </span><span style=color:#fe8019>| </span><span style=color:#fdf4c1>grep -q </span><span style=color:#b8bb26>"Pi Zero"</span><span>) </span><span style=color:#fe8019>&& </span><span style=color:#fa5c4b>if </span><span style=color:#fabd2f>[ </span><span style=color:#fe8019>! </span><span style=color:#fdf4c1>-d node-v${NODE_VER}-linux-armv6l </span><span style=color:#fabd2f>]</span><span style=color:#fe8019>; </span><span style=color:#fa5c4b>then
+</span><span>    </span><span style=color:#fabd2f>echo </span><span style=color:#b8bb26>"Installing nodejs ${</span><span style=color:#fdf4c1>NODE_VER</span><span style=color:#b8bb26>} for armv6 from unofficial builds..."
+</span><span>    </span><span style=color:#fdf4c1>curl -O https://unofficial-builds.nodejs.org/download/release/v${NODE_VER}/node-v${NODE_VER}-linux-armv6l.tar.xz
+</span><span>    </span><span style=color:#fdf4c1>tar -xf node-v${NODE_VER}-linux-armv6l.tar.xz
+</span><span>  </span><span style=color:#fa5c4b>fi
+</span><span>  </span><span style=color:#fabd2f>echo </span><span style=color:#b8bb26>"Adding node to the PATH"
+</span><span>  </span><span style=color:#fdf4c1>PATH</span><span style=color:#fe8019>=</span><span style=color:#b8bb26>$(</span><span style=color:#fdf4c1>pwd</span><span style=color:#b8bb26>)/node-v${</span><span style=color:#fdf4c1>NODE_VER</span><span style=color:#b8bb26>}-linux-armv6l/bin:${</span><span style=color:#fdf4c1>PATH</span><span style=color:#b8bb26>}
+</span><span style=color:#fa5c4b>fi
+</span></code></pre><p>After installing NodeJS, run the following script whenever you want to turn your UE Boom on. <strong>Make sure you replace 00:11:22:33:44:55 with your UE Boom’s Bluetooth MAC address, and AABBCCDDEEFF to your Raspberry Pi Zero W’s Bluetooth MAC address, the same client address you used for pairing.</strong><pre class=language-bash data-lang=bash style=color:#fdf4c1aa;background-color:#282828><code class=language-bash data-lang=bash><span style=color:#928374;font-style:italic>#!/bin/sh
+</span><span>
+</span><span style=color:#fabd2f>set </span><span style=color:#fdf4c1>-ue
+</span><span>
+</span><span style=color:#fdf4c1>HANDLE</span><span style=color:#fe8019>=</span><span style=color:#b8bb26>0x0003
+</span><span style=color:#fdf4c1>VALUE</span><span style=color:#fe8019>=</span><span style=color:#b8bb26>AABBCCDDEEFF01
+</span><span>
+</span><span style=color:#fdf4c1>MAC</span><span style=color:#fe8019>=</span><span style=color:#b8bb26>00:11:22:33:44:55
+</span><span>
+</span><span style=color:#fdf4c1>gatttool -b $MAC --char-write-req --handle</span><span style=color:#fe8019>=</span><span style=color:#fdf4c1>$HANDLE --value</span><span style=color:#fe8019>=</span><span style=color:#fdf4c1>$VALUE
+</span></code></pre></div><div class=post-tags><a class=tag href=/tags/home-assistant>#home assistant</a><a class=tag href=/tags/pi-btaudio>#pi-btaudio</a><a class=tag href=/tags/raspberry-pi>#raspberry pi</a><a class=tag href=/tags/raspotify>#raspotify</a><a class=tag href=/tags/spotcast>#spotcast</a><a class=tag href=/tags/spotify>#spotify</a><a class=tag href=/tags/ue-boom>#ue boom</a></div><div class=post-nav><a class=previous href=https://guylewin.com/blog/2021-12-27-winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/><svg class=icon><use href=https://guylewin.com/icons.svg#chevronLeft></use></svg> Next Project</a><a class=next href=https://guylewin.com/blog/2021-07-11-unifi-static-ip-leases/>Previous Project <svg class=icon><use href=https://guylewin.com/icons.svg#chevronRight></use></svg></a></div></article></main><footer><hr><div id=footer-container><p>Made using <a rel="noopener noreferrer" href=https://github.com/Speyll/anemone target=_blank>anemone</a> Zola theme</div></footer><script defer src=https://guylewin.com/js/script.js></script>
