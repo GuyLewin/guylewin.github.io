@@ -16,8 +16,10 @@ taxonomies = [
 
 [markdown]
 external_links_target_blank = true
-highlight_code = true
-highlight_theme = "gruvbox-dark"
+
+[markdown.highlighting]
+enabled = true
+theme = "github-dark"
 
 [slugify]
 paths_keep_dates = true
