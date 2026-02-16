@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    
+    <url>
+        <loc>https://guylewin.com</loc>
+        <lastmod>2026-02-16</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>1.0</priority>
+    </url>
+
+    
+    
+    
+    <url>
+        <loc>https://guylewin.com/about/</loc>
+        <lastmod>2025-10-19</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.9</priority>
+    </url>
+    
+    
+    
+    
+    
+    <url>
+        <loc>https://guylewin.com/blog/2025-10-18-automating-secret-santa/</loc>
+        <lastmod>2025-10-18</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2025-01-11-securing-wedding-website-with-nginx/</loc>
+        <lastmod>2025-01-11</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2025-01-01-spotify-smart-playlists/</loc>
+        <lastmod>2025-01-01</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2022-04-17-thcon-2k22-ctf-local-card-maker-writeup/</loc>
+        <lastmod>2022-04-17</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2022-03-02-bathroom-smart-speaker-part-2-airplay-to-bluetooth-speaker-via-raspberry-pi/</loc>
+        <lastmod>2022-03-02</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2021-12-27-winning-the-impossible-race-an-unintended-solution-for-includers-revenge-counter-hxp-2021/</loc>
+        <lastmod>2021-12-27</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2021-09-16-bathroom-smart-speaker-using-ue-boom-raspberry-pi-spotify-and-home-assistant/</loc>
+        <lastmod>2021-09-16</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2021-07-11-unifi-static-ip-leases/</loc>
+        <lastmod>2021-07-11</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2020-10-27-inconsistencies-in-grpc-java-error-handling-with-bidirectional-streams/</loc>
+        <lastmod>2020-10-27</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2019-03-16-debugging-webkit-for-ios/</loc>
+        <lastmod>2019-03-16</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2019-03-15-lock-mac-after-inactivity/</loc>
+        <lastmod>2019-03-15</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2019-03-14-quietcomfort-35-macbook-iphone-bluetooth-connectivity/</loc>
+        <lastmod>2019-03-14</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2019-01-19-iodine-and-paid-access-hotspot-situations/</loc>
+        <lastmod>2019-01-19</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2019-01-19-israel-finance-telegram-bot/</loc>
+        <lastmod>2019-01-19</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2018-02-17-torrentleechseeder-and-dlink-dsl-6740u-file-upload/</loc>
+        <lastmod>2018-02-17</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2015-05-08-as3992-python-api/</loc>
+        <lastmod>2015-05-08</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+    <url>
+        <loc>https://guylewin.com/blog/2015-05-02-compiling-new-kernel-for-radxa-rock-pro-rtl8187l-support/</loc>
+        <lastmod>2015-05-02</lastmod>
+        <changefreq>never</changefreq>
+        <priority>0.8</priority>
+    </url>
+    
+</urlset>
