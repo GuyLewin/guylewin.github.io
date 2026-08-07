@@ -7,7 +7,10 @@ date = 2025-10-19
 display_published = false
 keywords = ["Guy Lewin", "software engineer", "Rust", "Home Assistant", "technology", "NYC", "programming"]
 +++
-{{ img(id="/images/about/me.jpg", class="about_me") }}
+<div class="about_me">
+  <img src="/images/about/me.jpg">
+</div>
+
 Hi! I'm Guy, a software engineer currently living in NYC.
 
 I'm passionate about Rust 🦀, Home Assistant 🏠️, eating good food 🥩 and drinking too much coffee ☕️.

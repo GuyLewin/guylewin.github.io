@@ -17,9 +17,11 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: build_and_deploy
-        uses: shalzz/zola-deploy-action@master
+        # Pinned on purpose: this action's tag == the Zola version it builds with.
+        # Tracking @master means a breaking Zola release silently breaks the nightly build.
+        uses: shalzz/zola-deploy-action@v0.23.1
         env:
           # Target branch
           PAGES_BRANCH: gh-pages
